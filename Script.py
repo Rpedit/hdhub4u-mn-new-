@@ -1,9 +1,9 @@
 class script(object):
     START_TXT = """<b>Hey 👋 {} 🤩
 
-🍿 WELCOME TO THE WORLD'S COOLEST SEARCH ENGINE!
+"""🍿 WELCOME TO THE WORLD'S COOLEST SEARCH ENGINE!
 
-Here You Can Request Movie's, Just Sent Movie OR WebSeries Name With Proper Google Spelling..!!</b>"""
+Here You Can Request Movie's, Just Sent Movie OR WebSeries Name With Proper <a href='https://www.google.com'>Google</a> Spelling..!!"""
 
     SEARCH_TXT = """📨 Sᴇɴᴅ Mᴏᴠɪᴇ Oʀ Sᴇʀɪᴇs Nᴀᴍᴇ ᴀɴᴅ Yᴇᴀʀ Aꜱ Pᴇʀ Gᴏᴏɢʟᴇ Sᴘᴇʟʟɪɴɢ..!! 👍
 
