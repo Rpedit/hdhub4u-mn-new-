@@ -105,9 +105,9 @@ async def start(client, message):
                     InlineKeyboardButton('📤 SHARE NOW 📤', url=f'https://telegram.me/share/url?url=https://t.me/{temp.U_NAME}')
                 ]]
         reply_markup = InlineKeyboardMarkup(buttons)
-        m=await message.reply_text("⏳")
-        await asyncio.sleep(0.4)
-        await m.delete()        
+       # m=await message.reply_text("⏳")
+       # await asyncio.sleep(0.4)
+       # await m.delete()        
         await message.reply_photo(
             photo=random.choice(PICS),
             caption=script.START_TXT.format(message.from_user.mention),
@@ -123,9 +123,9 @@ async def start(client, message):
                     InlineKeyboardButton('📤 SHARE NOW 📤', url=f'https://telegram.me/share/url?url=https://t.me/{temp.U_NAME}')
                 ]]
         reply_markup = InlineKeyboardMarkup(buttons)
-        m=await message.reply_text("⏳")
-        await asyncio.sleep(0.4)
-        await m.delete()        
+       # m=await message.reply_text("⏳")
+       # await asyncio.sleep(0.4)
+       # await m.delete()        
         await message.reply_photo(
             photo=random.choice(PICS),
             caption=script.START_TXT.format(message.from_user.mention),
