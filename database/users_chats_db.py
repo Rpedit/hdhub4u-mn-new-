@@ -20,6 +20,24 @@ class Database:
         self.filename_col = self.db.filename
         self.movie_updates = self.db.movie_updates
         self.connection = self.db.connections
+        self.alert_messages = self.db.alert_messages
+
+    async def add_alert_message(self, chat_id, message_id, sent_time):
+        await self.alert_messages.insert_one(
+            {
+                'chat_id': chat_id,
+                'message_id': message_id,
+                'sent_time': sent_time
+            }
+        )
+
+    async def get_old_alert_messages(self, delay):
+        cutoff_time = datetime.datetime.now() - datetime.timedelta(seconds=delay)
+        cursor = self.alert_messages.find({'sent_time': {'$lt': cutoff_time}})
+        return await cursor.to_list(length=None)
+
+    async def delete_alert_message(self, _id):
+        await self.alert_messages.delete_one({'_id': _id})
 
     async def add_name(self, filename):
         if await self.movie_updates.find_one({'_id': filename}):
