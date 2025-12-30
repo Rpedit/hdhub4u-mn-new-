@@ -40,6 +40,8 @@ SPELL_CHECK = {}
 
 @Client.on_message(filters.group & filters.text & filters.incoming & ~filters.regex(r"^/") )
 async def give_filter(client, message):
+    if message.chat.id == SILENT_GROUP_ID:
+        return
     if EMOJI_MODE:
         try:
             await message.react(emoji=random.choice(REACTIONS), big=True)
@@ -1772,11 +1774,20 @@ async def auto_filter(client, msg, spoll=False):
 
             # Send notification
             try:
-                await client.send_message(
+                alert_msg = await client.send_message(
                     chat_id=chat_id,
                     text=script.BUTTON_DELETION_TXT.format(user_mention),
                     parse_mode=enums.ParseMode.HTML
                 )
+
+                async def delete_alert_message(msg):
+                    await asyncio.sleep(ALERT_MSG_DELETE_TIME)
+                    try:
+                        await msg.delete()
+                    except Exception:
+                        pass
+
+                asyncio.create_task(delete_alert_message(alert_msg))
             except Exception as e:
                 logger.error(e)
         except Exception:
@@ -2164,4 +2175,3 @@ async def advantage_spell_chok(client, message):
         await d.delete()
         await message.delete()
     except: pass
-
