@@ -50,12 +50,13 @@ BIN_CHANNEL = int(environ.get('BIN_CHANNEL', '-1002422777516'))  # Bin channel i
 PREMIUM_LOGS = int(environ.get('PREMIUM_LOGS', '-1002600490832'))  # Premium logs channel id
 DELETE_CHANNELS = [int(dch) if id_pattern.search(dch) else dch for dch in environ.get('DELETE_CHANNELS', '-100').split()] #(make sure bot is admin)
 support_chat_id = environ.get('SUPPORT_CHAT_ID', '-1002651053385')  # Support group id (make sure bot is admin)
+silent_group_id = environ.get('SILENT_GROUP_ID', '-1002695471786') # Silent group id
 reqst_channel = environ.get('REQST_CHANNEL_ID', '-1002540946493')  # Request channel id (make sure bot is admin)
 SUPPORT_CHAT = environ.get('SUPPORT_CHAT', 'https://t.me/hd_pro_support_group')  # Support group link (make sure bot is admin)
 
 # FORCE_SUB 
 auth_req_channels = environ.get("AUTH_REQ_CHANNELS", "-1002623886935")# requst to join Channel for force sub (make sure bot is admin) only for bot ADMINS  
-auth_channels     = environ.get("AUTH_CHANNELS", "-1002623886935 -1002695471786")# Channels for force sub (make sure bot is admin)
+auth_channels     = environ.get("AUTH_CHANNELS", "-1002623886935")# Channels for force sub (make sure bot is admin)
 
 # ============================
 # Payment Configuration
@@ -144,6 +145,7 @@ PORT = int(environ.get("PORT", "8080"))  # Port for the web server (default: 808
 MSG_ALRT = environ.get('MSG_ALRT', 'Share & Support Us ♥️') # Alert message for users
 DELETE_TIME = int(environ.get("DELETE_TIME", "300"))  #  deletion time in seconds (default: 5 minutes). Adjust as per your needs.
 BUTTON_DELETE_TIME = int(environ.get("BUTTON_DELETE_TIME", "180"))
+ALERT_MSG_DELETE_TIME = int(environ.get("ALERT_MSG_DELETE_TIME", "600"))
 FILE_DELETE_TIME = int(environ.get("FILE_DELETE_TIME", "60"))
 CUSTOM_FILE_CAPTION = environ.get("CUSTOM_FILE_CAPTION", f"{script.CAPTION}")   # Custom caption for files
 BATCH_FILE_CAPTION = environ.get("BATCH_FILE_CAPTION", CUSTOM_FILE_CAPTION) # Custom caption for batch files
@@ -176,6 +178,7 @@ AUTH_REQ_CHANNELS = [int(ch) for ch in auth_req_channels.split() if ch and id_pa
 AUTH_CHANNELS = [int(ch) for ch in auth_channels.split() if ch and id_pattern.match(ch)]
 REQST_CHANNEL = int(reqst_channel) if reqst_channel and id_pattern.search(reqst_channel) else None
 SUPPORT_CHAT_ID = int(support_chat_id) if support_chat_id and id_pattern.search(support_chat_id) else None
+SILENT_GROUP_ID = int(silent_group_id) if silent_group_id and id_pattern.search(silent_group_id) else None
 LANGUAGES = {"ᴍᴀʟᴀʏᴀʟᴀᴍ":"mal","ᴛᴀᴍɪʟ":"tam","ᴇɴɢʟɪsʜ":"eng","ʜɪɴᴅɪ":"hin","ᴛᴇʟᴜɢᴜ":"tel","ᴋᴀɴɴᴀᴅᴀ":"kan","ɢᴜᴊᴀʀᴀᴛɪ":"guj","ᴍᴀʀᴀᴛʜɪ":"mar","ᴘᴜɴᴊᴀʙɪ":"pun"}
 QUALITIES = ["360P", "480P", "720P", "1080P", "1440P", "2160P", "4K"]
 
