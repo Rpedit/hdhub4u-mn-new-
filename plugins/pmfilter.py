@@ -1809,7 +1809,7 @@ async def auto_filter(client, msg, spoll=False):
                 search = message_text.lower()
 
                 # Typing action dikhane ke liye:
-                await client.send_chat_action(message.chat.id, enums.ChatAction.TYPING)
+                # await client.send_chat_action(message.chat.id, enums.ChatAction.TYPING)
 
                 # Sticker aur Button commented hain (Kuch bhi remove nahi kiya)
                 # stick_id = "CAACAgIAAxkBAAEPhm5o439f8A4sUGO2VcnBFZRRYxAxmQACtCMAAphLKUjeub7NKlvk2TYE"
