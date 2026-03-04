@@ -125,7 +125,7 @@ THREE_VERIFY_GAP = int(environ.get('THREE_VERIFY_GAP', "54000"))
 # Channel & Group Links Configuration
 # ============================
 GRP_LNK = environ.get('GRP_LNK', 'https://t.me/hdhub4ucommunity') # Group link for the bot
-OWNER_LNK = environ.get('OWNER_LNK', 'https://t.me/Talk2Rpeditz_Bot') # Owner link for the bot
+OWNER_LNK = environ.get('OWNER_LNK', 'https://t.me/hd_pro_support_group') # Owner link for the bot
 UPDATE_CHNL_LNK = environ.get('UPDATE_CHNL_LNK', 'https://t.me/+wKgwWFIWKOhhN2I1') # Update channel link for the bot
 
 # ============================
