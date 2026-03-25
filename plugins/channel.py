@@ -100,12 +100,12 @@ def remove_ignored_words(text: str) -> str:
 
 def get_qualities(text: str) -> str:
     qualities = QUALITY_PATTERN.findall(text)
-    return ", ".join(qualities) if qualities else "N/A"
+    return ", ".join(qualities) if qualities else ""
 
 def extract_ott_platform(text: str) -> str:
     text = text.lower()
     platforms = {plat for key, plat in OTT_PLATFORMS.items() if key in text}
-    return " | ".join(platforms) if platforms else "N/A"
+    return " | ".join(platforms) if platforms else ""
 
 def extract_season_episode(filename: str) -> Tuple[Optional[int], Optional[str]]:
     if m := EP_ONLY_RANGE.search(filename):
@@ -136,11 +136,11 @@ def extract_media_info(filename: str, caption: str):
     season = episode = year = None
     tag = "#MOVIE"
     processed_raw = base_raw = filename
-    quality = get_qualities(caption_clean) or get_qualities(filename.lower()) or "N/A"
+    quality = get_qualities(caption_clean) or get_qualities(filename.lower()) or ""
     ott_platform = extract_ott_platform(f"{filename} {caption_clean}")
 
     lang_keys = {k for k in CAPTION_LANGUAGES if k in caption_clean or k in filename.lower()}
-    language = ", ".join(sorted({CAPTION_LANGUAGES[k] for k in lang_keys})) if lang_keys else "N/A"
+    language = ", ".join(sorted({CAPTION_LANGUAGES[k] for k in lang_keys})) if lang_keys else ""
 
     season, episode = extract_season_episode(filename)
     if season is not None:
@@ -270,7 +270,6 @@ async def _process_with_lock(bot, filename, caption, media_info, base_name, proc
         if TMDB_POSTER:
             try:
                 details = await get_movie_detailsx(base_name)
-                # FIX: Added None check to prevent Attribute error
                 if not details or details.get("error") or (not details.get("poster_url") and not details.get("backdrop_url")):
                     error_tmdb = True
                     details = await get_movie_details(base_name) or {}
@@ -280,22 +279,21 @@ async def _process_with_lock(bot, filename, caption, media_info, base_name, proc
         else:
             details = await get_movie_details(base_name) or {}
 
-        # Safely get genres
-        raw_genres = details.get("genres", "N/A")
+        raw_genres = details.get("genres", "")
         if isinstance(raw_genres, str):
             genre_list = [g.strip() for g in raw_genres.split(",")]
-            genres = ", ".join(g for g in genre_list if g in STANDARD_GENRES) or "N/A"
+            genres = ", ".join(g for g in genre_list if g in STANDARD_GENRES) or ""
         elif isinstance(raw_genres, list):
-            genres = ", ".join(g for g in raw_genres if g in STANDARD_GENRES) or "N/A"
+            genres = ", ".join(g for g in raw_genres if g in STANDARD_GENRES) or ""
         else:
-            genres = "N/A"
+            genres = ""
 
         movie_doc = {
             "_id": base_name,
             "files": [file_data],
             "poster_url": details.get("backdrop_url") if LANDSCAPE_POSTER and TMDB_POSTER and details.get("backdrop_url") and not error_tmdb else details.get("poster_url"),
             "genres": genres,
-            "rating": details.get("rating", "N/A"),
+            "rating": details.get("rating", ""),
             "imdb_url": details.get("url", "") if not TMDB_POSTER or error_tmdb else details.get("tmdb_url"),
             "year": media_info["year"] or details.get("year"),
             "tag": media_info["tag"],
@@ -327,13 +325,16 @@ async def send_movie_update(bot, base_name):
             
             size = (2560, 1440) if LANDSCAPE_POSTER and TMDB_POSTER and movie_doc.get("is_backdrop") and not movie_doc.get("error_tmdb") else (853, 1280)
             
-            if movie_doc.get("poster_url") and not LINK_PREVIEW:
-                resized_poster = await fetch_image(movie_doc["poster_url"], size)
+            # FIX: Ensure no leading/trailing whitespace in poster_url string
+            poster_url = str(movie_doc.get("poster_url", "")).strip()
+            
+            if poster_url and not LINK_PREVIEW:
+                resized_poster = await fetch_image(poster_url, size)
                 msg = await bot.send_photo(chat_id=MOVIE_UPDATE_CHANNEL, photo=resized_poster, caption=text, reply_markup=buttons, parse_mode=enums.ParseMode.HTML)
                 is_photo = True
             else:
                 send_params = {"chat_id": MOVIE_UPDATE_CHANNEL, "text": text, "reply_markup": buttons, "parse_mode": enums.ParseMode.HTML}
-                if movie_doc.get("poster_url") and LINK_PREVIEW: send_params["invert_media"] = ABOVE_PREVIEW
+                if poster_url and LINK_PREVIEW: send_params["invert_media"] = ABOVE_PREVIEW
                 msg = await bot.send_message(**send_params)
                 is_photo = False
 
@@ -377,13 +378,20 @@ def generate_movie_message(movie_doc, base_name):
     episodes_by_season = defaultdict(set)
 
     for file in movie_doc["files"]:
-        if file["quality"] != "N/A": all_qualities.update(q.strip() for q in file["quality"].split(",") if q.strip())
-        if file["language"] != "N/A": all_languages.update(l.strip() for l in file["language"].split(",") if l.strip())
-        if file["ott_platform"] != "N/A": all_ott_platforms.update(p.strip() for p in file["ott_platform"].split("|") if p.strip())
-        if file["tag"]: all_tags.add(file["tag"])
+        q = file.get("quality", "").strip()
+        if q and q.lower() != "n/a": all_qualities.update(i.strip() for i in q.split(",") if i.strip())
+        
+        l = file.get("language", "").strip()
+        if l and l.lower() != "n/a": all_languages.update(i.strip() for i in l.split(",") if i.strip())
+        
+        o = file.get("ott_platform", "").strip()
+        if o and o.lower() != "n/a": all_ott_platforms.update(i.strip() for i in o.split("|") if i.strip())
+        
+        if file.get("tag"): all_tags.add(file["tag"])
         if file.get("season") and file.get("episode"): episodes_by_season[file["season"]].add(file["episode"])
 
     primary_tag = "#SERIES" if "#SERIES" in all_tags else "#MOVIE"
+    
     epi_block = ""
     if episodes_by_season:
         lines = []
@@ -406,16 +414,29 @@ def generate_movie_message(movie_doc, base_name):
             lines.append(f"S{int(s)}: {', '.join(collapsed + sorted(ranges, key=lambda x: int(x.split('-')[0])))}")
         epi_block = f"📺 ᴇᴘɪsᴏᴅᴇs : <b>" + "\n".join(lines) + "</b>"
 
-    return script.MOVIE_UPDATE_NOTIFY_TXT.format(
-        poster_url=movie_doc.get("poster_url", ""),
-        imdb_url=movie_doc.get("imdb_url", ""),
+    # IMDB Hyperlink in Rating & N/A removal
+    raw_rating = str(movie_doc.get("rating", "")).strip()
+    rating_val = raw_rating if raw_rating and raw_rating.lower() != "n/a" else "6.5 ★"
+    imdb_url = movie_doc.get("imdb_url") or "https://www.imdb.com"
+    rating_display = f'<a href="{imdb_url}">{rating_val}</a>'
+
+    def clean_na(val):
+        v = str(val).strip()
+        return v if v and v.lower() != "n/a" else ""
+
+    msg_text = script.MOVIE_UPDATE_NOTIFY_TXT.format(
+        poster_url=clean_na(movie_doc.get("poster_url", "")),
+        imdb_url=imdb_url,
         filename=base_name,
         tag=primary_tag,
-        genres=movie_doc.get("genres", "N/A"),
-        ott=", ".join(sorted(all_ott_platforms)) if all_ott_platforms else "N/A",
-        quality=", ".join(sorted(all_qualities)) if all_qualities else "N/A",
-        language=", ".join(sorted(all_languages)) if all_languages else "N/A",
+        genres=clean_na(movie_doc.get("genres")),
+        ott=", ".join(sorted(all_ott_platforms)) if all_ott_platforms else "",
+        quality=", ".join(sorted(all_qualities)) if all_qualities else "",
+        language=", ".join(sorted(all_languages)) if all_languages else "",
         episodes=epi_block,
-        rating=movie_doc.get("rating", "N/A"),
+        rating=rating_display,
         search_link=temp.B_LINK
     )
+    # FIX: Remove extra empty lines caused by formatted N/A values
+    return "\n".join([line for line in msg_text.splitlines() if line.strip()])
+
