@@ -384,6 +384,7 @@ def generate_movie_message(movie_doc, base_name):
         if file.get("season") and file.get("episode"): episodes_by_season[file["season"]].add(file["episode"])
 
     primary_tag = "#SERIES" if "#SERIES" in all_tags else "#MOVIE"
+    
     epi_block = ""
     if episodes_by_season:
         lines = []
@@ -404,9 +405,11 @@ def generate_movie_message(movie_doc, base_name):
                     start = end = num
             if start is not None: collapsed.append(str(start) if start == end else f"{start}-{end}")
             lines.append(f"S{int(s)}: {', '.join(collapsed + sorted(ranges, key=lambda x: int(x.split('-')[0])))}")
-        epi_block = f"📺 ᴇᴘɪsᴏᴅᴇs : <b>" + "\n".join(lines) + "</b>"
+        # \n remove karke seedha block banaya
+        epi_block = f"📺 ᴇᴘɪsᴏᴅᴇs : <b>" + ", ".join(lines) + "</b>"
 
-    return script.MOVIE_UPDATE_NOTIFY_TXT.format(
+    # Formatting text and removing empty lines
+    formatted_text = script.MOVIE_UPDATE_NOTIFY_TXT.format(
         poster_url=movie_doc.get("poster_url", ""),
         imdb_url=movie_doc.get("imdb_url", ""),
         filename=base_name,
@@ -419,3 +422,6 @@ def generate_movie_message(movie_doc, base_name):
         rating=movie_doc.get("rating", "N/A"),
         search_link=temp.B_LINK
     )
+
+    # FIX: Yeh line extra empty spaces ko remove kar degi
+    return "\n".join([line for line in formatted_text.splitlines() if line.strip()])
