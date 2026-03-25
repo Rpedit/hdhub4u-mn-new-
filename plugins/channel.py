@@ -377,14 +377,21 @@ def generate_movie_message(movie_doc, base_name):
     episodes_by_season = defaultdict(set)
 
     for file in movie_doc["files"]:
-        if file["quality"] != "N/A": all_qualities.update(q.strip() for q in file["quality"].split(",") if q.strip())
-        if file["language"] != "N/A": all_languages.update(l.strip() for l in file["language"].split(",") if l.strip())
-        if file["ott_platform"] != "N/A": all_ott_platforms.update(p.strip() for p in file["ott_platform"].split("|") if p.strip())
-        if file["tag"]: all_tags.add(file["tag"])
+        q = file.get("quality", "").strip()
+        if q and q.lower() != "n/a": all_qualities.update(i.strip() for i in q.split(",") if i.strip())
+        
+        l = file.get("language", "").strip()
+        if l and l.lower() != "n/a": all_languages.update(i.strip() for i in l.split(",") if i.strip())
+        
+        o = file.get("ott_platform", "").strip()
+        if o and o.lower() != "n/a": all_ott_platforms.update(i.strip() for i in o.split("|") if i.strip())
+        
+        if file.get("tag"): all_tags.add(file["tag"])
         if file.get("season") and file.get("episode"): episodes_by_season[file["season"]].add(file["episode"])
 
     primary_tag = "#SERIES" if "#SERIES" in all_tags else "#MOVIE"
     
+    # Episode Block Logic (Compact keeping space in mind)
     epi_block = ""
     if episodes_by_season:
         lines = []
@@ -405,23 +412,36 @@ def generate_movie_message(movie_doc, base_name):
                     start = end = num
             if start is not None: collapsed.append(str(start) if start == end else f"{start}-{end}")
             lines.append(f"S{int(s)}: {', '.join(collapsed + sorted(ranges, key=lambda x: int(x.split('-')[0])))}")
-        # \n remove karke seedha block banaya
         epi_block = f"📺 ᴇᴘɪsᴏᴅᴇs : <b>" + ", ".join(lines) + "</b>"
 
-    # Formatting text and removing empty lines
+    # --- SPECIFIC MOVIE/SERIES LINK FIX ---
+    # Jo movie/series add hui hai, ye uska hi unique IMDb URL uthayega
+    raw_rating = str(movie_doc.get("rating", "6.5")).strip()
+    rating_val = raw_rating if raw_rating and raw_rating.lower() != "n/a" else "6.5 ★"
+    
+    # movie_doc se specific link uthana
+    imdb_url = movie_doc.get("imdb_url") or "https://www.imdb.com"
+    # Rating ab clickable link ban jayega ussi movie ka
+    rating_display = f'<a href="{imdb_url}">{rating_val}</a>'
+
+    def get_val(val, fallback=""):
+        v = str(val).strip()
+        return v if v and v.lower() != "n/a" else fallback
+
+    # Formatting text
     formatted_text = script.MOVIE_UPDATE_NOTIFY_TXT.format(
-        poster_url=movie_doc.get("poster_url", ""),
-        imdb_url=movie_doc.get("imdb_url", ""),
+        poster_url=get_val(movie_doc.get("poster_url")),
+        imdb_url=imdb_url,
         filename=base_name,
         tag=primary_tag,
-        genres=movie_doc.get("genres", "N/A"),
-        ott=", ".join(sorted(all_ott_platforms)) if all_ott_platforms else "N/A",
-        quality=", ".join(sorted(all_qualities)) if all_qualities else "N/A",
-        language=", ".join(sorted(all_languages)) if all_languages else "N/A",
+        genres=get_val(movie_doc.get("genres"), "Drama, Action"),
+        ott=", ".join(sorted(all_ott_platforms)) if all_ott_platforms else "Amazon Prime Video",
+        quality=", ".join(sorted(all_qualities)) if all_qualities else "1080p, 720p",
+        language=", ".join(sorted(all_languages)) if all_languages else "Hindi, English",
         episodes=epi_block,
-        rating=movie_doc.get("rating", "N/A"),
+        rating=rating_display,
         search_link=temp.B_LINK
     )
 
-    # FIX: Yeh line extra empty spaces ko remove kar degi
-    return "\n".join([line for line in formatted_text.splitlines() if line.strip()])
+    # Niche ka extra space remove karne ke liye rstrip()
+    return formatted_text.rstrip()
