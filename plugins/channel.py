@@ -83,9 +83,11 @@ SINGLE_REGEX = re.compile(r'\bS(\d{1,2})[^\w\n\r]*E(?:p(?:isode)?)?0*(\d{1,3})',
 NAMED_REGEX = re.compile(r'Season\s*0*(\d{1,2})[\s\-,:]*Ep(?:isode)?\s*0*(\d{1,3})', re.IGNORECASE)
 EP_ONLY_RANGE = re.compile(r'\b(?:EP|Episode)0*(\d{1,3})\s*-\s*0*(\d{1,3})\b',re.IGNORECASE)
 
+
 MEDIA_FILTER = filters.document | filters.video | filters.audio
 locks = defaultdict(asyncio.Lock)
 pending_updates = {}
+error_tmdb = False
 
 def clean_mentions_links(text: str) -> str:
     return CLEAN_PATTERN.sub("", text or "").strip()
@@ -113,7 +115,10 @@ def extract_season_episode(filename: str) -> Tuple[Optional[int], Optional[str]]
     for pattern in (RANGE_REGEX, SINGLE_REGEX, NAMED_REGEX):
         if m := pattern.search(filename):
             season = int(m.group(1))
-            ep = f"{m.group(2)}-{m.group(3)}" if pattern == RANGE_REGEX else m.group(2)
+            if pattern == RANGE_REGEX:
+                ep = f"{m.group(2)}-{m.group(3)}"
+            else:
+                ep = m.group(2)
             return season, ep
     return None, None
 
@@ -127,7 +132,6 @@ def schedule_update(bot, base_name, delay=5):
         delay,
         lambda: asyncio.create_task(update_movie_message(bot, base_name))
     )
-
 def extract_media_info(filename: str, caption: str):
     filename = normalize(clean_mentions_links(filename).title())
     caption_clean = clean_mentions_links(caption).lower() if caption else ""
@@ -181,30 +185,53 @@ def extract_media_info(filename: str, caption: str):
         if year:
             base_name += f" {year}"
 
+    # -------------------------
+    # NEW: strip season/episode tokens from final base_name
+    # -------------------------
     def _strip_season_episode_tokens(name: str) -> str:
-        if not name: return name
+        """
+        Remove common season/episode markers from a title while preserving a trailing year.
+        Examples removed: S01, s01e02, 1x02, season 1, ep 02, episode 2, part 1
+        """
+        if not name:
+            return name
+
+        # Preserve trailing year (e.g. "Title (2020)" or "Title 2020")
         year_match = re.search(r'\(?\b(19|20)\d{2}\b\)?\s*$', name)
         year_part = ""
         if year_match:
             year_part = year_match.group(0)
             name = name[:year_match.start()].strip()
 
+        # Common patterns to remove
         patterns = [
-            r'\bS\d{1,2}E\d{1,2}\b', r'\bS\d{1,2}\b', r'\bE\d{1,2}\b',
-            r'\b\d{1,2}x\d{1,2}\b', r'\bSeason\s*\d{1,2}\b', 
-            r'\bEp(?:isode)?\.?\s*\d{1,3}\b', r'\bEpisode\s*\d{1,3}\b', r'\bPart\s*\d{1,2}\b'
+            r'\bS\d{1,2}E\d{1,2}\b',     # S01E02
+            r'\bS\d{1,2}\b',             # S01
+            r'\bE\d{1,2}\b',             # E02
+            r'\b\d{1,2}x\d{1,2}\b',      # 1x02
+            r'\bSeason\s*\d{1,2}\b',     # Season 1
+            r'\bEp(?:isode)?\.?\s*\d{1,3}\b',  # Ep02, Episode 2
+            r'\bEpisode\s*\d{1,3}\b',
+            r'\bPart\s*\d{1,2}\b'
         ]
+
         for p in patterns:
             name = re.sub(p, ' ', name, flags=re.IGNORECASE)
 
-        name = re.sub(r'[_\.\-]+', ' ', name)
+        # Remove leftover separators and extra whitespace
+        name = re.sub(r'[_\.\-]+', ' ', name)     # underscores/dots/hyphens
         name = re.sub(r'\s+', ' ', name).strip()
+
+        # Reattach year in canonical form if we removed it earlier
         if year_part:
             y = re.search(r'(19|20)\d{2}', year_part)
-            if y: name = f"{name} {y.group(0)}"
+            if y:
+                name = f"{name} {y.group(0)}"
+
         return name.strip()
 
     base_name = _strip_season_episode_tokens(base_name)
+    # If stripping accidentally removed everything, fall back to a safer value
     if not base_name:
         base_name = normalize(remove_ignored_words(normalize(processed_raw))) or filename
 
@@ -220,14 +247,23 @@ def extract_media_info(filename: str, caption: str):
         "language": language
     }
 
+
 @Client.on_message(filters.chat(CHANNELS) & MEDIA_FILTER)
 async def media_handler(bot, message):
-    media = next((getattr(message, ft) for ft in ("document", "video", "audio") if getattr(message, ft, None)), None)
-    if not media: return
+    media = next(
+        (getattr(message, ft) for ft in ("document", "video", "audio")
+         if getattr(message, ft, None)),
+        None
+    )
+    if not media:
+        return
+
     media.file_type = next(ft for ft in ("document", "video", "audio") if hasattr(message, ft))
     media.caption = message.caption or ""
     success, info = await save_file(media)
-    if not success: return
+    if not success:
+        return
+
     try:
         if await db.movie_update_status(bot.me.id):
             await process_and_send_update(bot, media.file_name, media.caption)
@@ -239,6 +275,7 @@ async def process_and_send_update(bot, filename, caption):
         media_info = extract_media_info(filename, caption)
         base_name = media_info["base_name"]
         processed = media_info["processed"]
+
         lock = locks[base_name]
         async with lock:
             await _process_with_lock(bot, filename, caption, media_info, base_name, processed)
@@ -252,7 +289,7 @@ async def _process_with_lock(bot, filename, caption, media_info, base_name, proc
         db.movie_updates = db.db.movie_updates
 
     movie_doc = await db.movie_updates.find_one({"_id": base_name})
-    error_tmdb = False
+    error_tmdb=False
     file_data = {
         "filename": filename,
         "processed": processed,
@@ -266,81 +303,108 @@ async def _process_with_lock(bot, filename, caption, media_info, base_name, proc
     }
 
     if not movie_doc:
-        details = {}
         if TMDB_POSTER:
-            try:
-                details = await get_movie_detailsx(base_name)
-                # FIX: Added None check to prevent Attribute error
-                if not details or details.get("error") or (not details.get("poster_url") and not details.get("backdrop_url")):
-                    error_tmdb = True
-                    details = await get_movie_details(base_name) or {}
-            except Exception:
-                error_tmdb = True
+            details = await get_movie_detailsx(base_name)
+            if details.get("error") or not details.get("poster_url") and not details.get("backdrop_url"):
+                error_tmdb=True
+                logger.info("TMDB error switching to IMDB")
                 details = await get_movie_details(base_name) or {}
         else:
             details = await get_movie_details(base_name) or {}
 
-        # Safely get genres
         raw_genres = details.get("genres", "N/A")
         if isinstance(raw_genres, str):
             genre_list = [g.strip() for g in raw_genres.split(",")]
             genres = ", ".join(g for g in genre_list if g in STANDARD_GENRES) or "N/A"
-        elif isinstance(raw_genres, list):
-            genres = ", ".join(g for g in raw_genres if g in STANDARD_GENRES) or "N/A"
         else:
-            genres = "N/A"
-
+            genres = ", ".join(g for g in raw_genres if g in STANDARD_GENRES) or "N/A"
         movie_doc = {
             "_id": base_name,
             "files": [file_data],
             "poster_url": details.get("backdrop_url") if LANDSCAPE_POSTER and TMDB_POSTER and details.get("backdrop_url") and not error_tmdb else details.get("poster_url"),
             "genres": genres,
             "rating": details.get("rating", "N/A"),
-            "imdb_url": details.get("url", "") if not TMDB_POSTER or error_tmdb else details.get("tmdb_url"),
+            "imdb_url": details.get("url", "")if not TMDB_POSTER or error_tmdb else details.get("tmdb_url"),
             "year": media_info["year"] or details.get("year"),
             "tag": media_info["tag"],
             "ott_platform": media_info["ott_platform"],
             "message_id": None,
             "is_photo": False,
             "error_tmdb": error_tmdb,
-            "is_backdrop": bool(details.get("backdrop_url"))
+            "is_backdrop": details.get("backdrop_url")
         }
         try:
             await db.movie_updates.insert_one(movie_doc)
             await send_movie_update(bot, base_name)
+            movie_doc = await db.movie_updates.find_one({"_id": base_name})
         except DuplicateKeyError:
-            await db.movie_updates.update_one({"_id": base_name}, {"$push": {"files": file_data}})
-            schedule_update(bot, base_name)
+            movie_doc = await db.movie_updates.find_one({"_id": base_name})
+            if movie_doc:
+                if any(f["filename"] == filename for f in movie_doc["files"]):
+                    return
+                await db.movie_updates.update_one(
+                    {"_id": base_name},
+                    {"$push": {"files": file_data}}
+                )
+                movie_doc["files"].append(file_data)
+                schedule_update(bot, base_name)
     else:
-        if any(f["filename"] == filename for f in movie_doc["files"]): return
-        await db.movie_updates.update_one({"_id": base_name}, {"$push": {"files": file_data}})
+        if any(f["filename"] == filename for f in movie_doc["files"]):
+            return
+        await db.movie_updates.update_one(
+            {"_id": base_name},
+            {"$push": {"files": file_data}}
+        )
+        movie_doc["files"].append(file_data)
         schedule_update(bot, base_name)
 
 async def send_movie_update(bot, base_name):
     max_retries = 3
+    base_delay = 5
     for attempt in range(max_retries):
         try:
             movie_doc = await db.movie_updates.find_one({"_id": base_name})
-            if not movie_doc: return None
+            if not movie_doc:
+                return None
+
             text = generate_movie_message(movie_doc, base_name)
-            buttons = InlineKeyboardMarkup([[InlineKeyboardButton('ɢᴇᴛ ғɪʟᴇs', url=f"https://t.me/{temp.U_NAME}?start=getfile-{base_name.replace(' ', '-')}")]])
-            
-            size = (2560, 1440) if LANDSCAPE_POSTER and TMDB_POSTER and movie_doc.get("is_backdrop") and not movie_doc.get("error_tmdb") else (853, 1280)
-            
+            buttons = InlineKeyboardMarkup([[
+                InlineKeyboardButton(
+                    'ɢᴇᴛ ғɪʟᴇs',
+                    url=f"https://t.me/{temp.U_NAME}?start=getfile-{base_name.replace(' ', '-')}"
+                )
+            ]])
+            size=(2560, 1440) if LANDSCAPE_POSTER and TMDB_POSTER and movie_doc.get("is_backdrop") and not movie_doc.get("error_tmdb") else (853, 1280)
             if movie_doc.get("poster_url") and not LINK_PREVIEW:
                 resized_poster = await fetch_image(movie_doc["poster_url"], size)
-                msg = await bot.send_photo(chat_id=MOVIE_UPDATE_CHANNEL, photo=resized_poster, caption=text, reply_markup=buttons, parse_mode=enums.ParseMode.HTML)
+                msg = await bot.send_photo(
+                    chat_id=MOVIE_UPDATE_CHANNEL,
+                    photo=resized_poster,
+                    caption=text,
+                    reply_markup=buttons,
+                    parse_mode=enums.ParseMode.HTML
+                )
                 is_photo = True
             else:
-                send_params = {"chat_id": MOVIE_UPDATE_CHANNEL, "text": text, "reply_markup": buttons, "parse_mode": enums.ParseMode.HTML}
-                if movie_doc.get("poster_url") and LINK_PREVIEW: send_params["invert_media"] = ABOVE_PREVIEW
+                send_params = {
+                    "chat_id": MOVIE_UPDATE_CHANNEL,
+                    "text": text,
+                    "reply_markup": buttons,
+                    "parse_mode": enums.ParseMode.HTML
+                }
+                if movie_doc.get("poster_url") and LINK_PREVIEW:
+                    send_params["invert_media"] = ABOVE_PREVIEW
                 msg = await bot.send_message(**send_params)
                 is_photo = False
 
-            await db.movie_updates.update_one({"_id": base_name}, {"$set": {"message_id": msg.id, "is_photo": is_photo}})
+            await db.movie_updates.update_one(
+                {"_id": base_name},
+                {"$set": {"message_id": msg.id, "is_photo": is_photo}}
+            )
             return msg
         except FloodWait as e:
-            await asyncio.sleep(e.value + 2)
+            wait_time = e.value + 2
+            await asyncio.sleep(wait_time)
         except Exception as e:
             logger.error(f"Failed to send movie update: {e}")
             break
@@ -349,10 +413,19 @@ async def send_movie_update(bot, base_name):
 async def update_movie_message(bot, base_name):
     try:
         movie_doc = await db.movie_updates.find_one({"_id": base_name})
-        if not movie_doc: return
+        if not movie_doc:
+            return
+
         text = generate_movie_message(movie_doc, base_name)
-        buttons = InlineKeyboardMarkup([[InlineKeyboardButton('ɢᴇᴛ ғɪʟᴇs', url=f"https://t.me/{temp.U_NAME}?start=getfile-{base_name.replace(' ', '-')}")]])
-        message_id, is_photo = movie_doc.get("message_id"), movie_doc.get("is_photo", False)
+        buttons = InlineKeyboardMarkup([[
+            InlineKeyboardButton(
+                'ɢᴇᴛ ғɪʟᴇs',
+                url=f"https://t.me/{temp.U_NAME}?start=getfile-{base_name.replace(' ', '-')}"
+            )
+        ]])
+
+        message_id = movie_doc.get("message_id")
+        is_photo = movie_doc.get("is_photo", False)
 
         if not message_id:
             await send_movie_update(bot, base_name)
@@ -360,88 +433,119 @@ async def update_movie_message(bot, base_name):
 
         try:
             if is_photo:
-                await bot.edit_message_caption(chat_id=MOVIE_UPDATE_CHANNEL, message_id=message_id, caption=text, reply_markup=buttons, parse_mode=enums.ParseMode.HTML)
+                await bot.edit_message_caption(
+                    chat_id=MOVIE_UPDATE_CHANNEL,
+                    message_id=message_id,
+                    caption=text,
+                    reply_markup=buttons,
+                    parse_mode=enums.ParseMode.HTML
+                )
             else:
-                await bot.edit_message_text(chat_id=MOVIE_UPDATE_CHANNEL, message_id=message_id, text=text, reply_markup=buttons, parse_mode=enums.ParseMode.HTML, invert_media=ABOVE_PREVIEW, disable_web_page_preview=not LINK_PREVIEW)
-        except (MessageIdInvalid, MessageNotModified): pass
+                await bot.edit_message_text(
+                    chat_id=MOVIE_UPDATE_CHANNEL,
+                    message_id=message_id,
+                    text=text,
+                    reply_markup=buttons,
+                    parse_mode=enums.ParseMode.HTML,
+                    invert_media=ABOVE_PREVIEW,
+                    disable_web_page_preview=not LINK_PREVIEW
+                )
+            return
+        except (MessageIdInvalid, MessageNotModified) as e:
+            logger.warning(f"Message update skipped due to error: {e}")
+            pass
         except Exception:
-            try: await bot.delete_messages(chat_id=MOVIE_UPDATE_CHANNEL, message_ids=message_id)
-            except: pass
-            await db.movie_updates.update_one({"_id": base_name}, {"$set": {"message_id": None, "is_photo": False}})
+            try:
+                await bot.delete_messages(
+                    chat_id=MOVIE_UPDATE_CHANNEL,
+                    message_ids=message_id
+                )
+                await db.movie_updates.update_one(
+                    {"_id": base_name},
+                    {"$set": {"message_id": None, "is_photo": False}}
+                )
+            except Exception as e:
+                logger.error(f"Error during message deletion/update in recovery: {e}")
+                pass
             await send_movie_update(bot, base_name)
     except Exception as e:
         logger.error(f"Failed to update movie message for {base_name}: {e}")
 
 def generate_movie_message(movie_doc, base_name):
-    all_qualities, all_languages, all_ott_platforms, all_tags = set(), set(), set(), set()
+    all_qualities = set()
+    all_languages = set()
+    all_ott_platforms = set()
+    all_tags = set()
     episodes_by_season = defaultdict(set)
 
     for file in movie_doc["files"]:
-        q = file.get("quality", "").strip()
-        if q and q.lower() != "n/a": all_qualities.update(i.strip() for i in q.split(",") if i.strip())
-        
-        l = file.get("language", "").strip()
-        if l and l.lower() != "n/a": all_languages.update(i.strip() for i in l.split(",") if i.strip())
-        
-        o = file.get("ott_platform", "").strip()
-        if o and o.lower() != "n/a": all_ott_platforms.update(i.strip() for i in o.split("|") if i.strip())
-        
-        if file.get("tag"): all_tags.add(file["tag"])
-        if file.get("season") and file.get("episode"): episodes_by_season[file["season"]].add(file["episode"])
+        if file["quality"] != "N/A":
+            all_qualities.update(q.strip() for q in file["quality"].split(",") if q.strip())
+        if file["language"] != "N/A":
+            all_languages.update(l.strip() for l in file["language"].split(",") if l.strip())
+        if file["ott_platform"] != "N/A":
+            platforms = [p.strip() for p in file["ott_platform"].split("|") if p.strip()]
+            all_ott_platforms.update(platforms)
+        if file["tag"]:
+            all_tags.add(file["tag"])
+        if file.get("season") and file.get("episode"):
+            season = file["season"]
+            episode = file["episode"]
+            episodes_by_season[season].add(episode)
 
     primary_tag = "#SERIES" if "#SERIES" in all_tags else "#MOVIE"
-    
-    # Episode Block Logic (Compact keeping space in mind)
     epi_block = ""
     if episodes_by_season:
-        lines = []
-        for s, eps in sorted(episodes_by_season.items(), key=lambda x: int(x[0])):
-            singles, ranges = [], []
-            for ep in eps:
-                if "-" in ep: ranges.append(ep)
-                else: 
-                    try: singles.append(int(ep))
-                    except: ranges.append(ep)
+        episode_lines = []
+        for season, episodes in sorted(episodes_by_season.items(), key=lambda x: int(x[0])):
+            singles = []
+            ranges = []
+
+            for ep in episodes:
+                if "-" in ep:
+                    ranges.append(ep)
+                else:
+                    try:
+                        singles.append(int(ep))
+                    except ValueError:
+                        ranges.append(ep)
+
             singles.sort()
-            collapsed, start, end = [], None, None
+            collapsed = []
+            start = end = None
             for num in singles:
-                if start is None: start = end = num
-                elif num == end + 1: end = num
+                if start is None:
+                    start = end = num
+                elif num == end + 1:
+                    end = num
                 else:
                     collapsed.append(str(start) if start == end else f"{start}-{end}")
                     start = end = num
-            if start is not None: collapsed.append(str(start) if start == end else f"{start}-{end}")
-            lines.append(f"S{int(s)}: {', '.join(collapsed + sorted(ranges, key=lambda x: int(x.split('-')[0])))}")
-        epi_block = f"📺 ᴇᴘɪsᴏᴅᴇs : <b>" + ", ".join(lines) + "</b>"
+            if start is not None:
+                collapsed.append(str(start) if start == end else f"{start}-{end}")
 
-    # --- SPECIFIC MOVIE/SERIES LINK FIX ---
-    # Jo movie/series add hui hai, ye uska hi unique IMDb URL uthayega
-    raw_rating = str(movie_doc.get("rating", "6.5")).strip()
-    rating_val = raw_rating if raw_rating and raw_rating.lower() != "n/a" else "6.5 ★"
-    
-    # movie_doc se specific link uthana
-    imdb_url = movie_doc.get("imdb_url") or "https://www.imdb.com"
-    # Rating ab clickable link ban jayega ussi movie ka
-    rating_display = f'<a href="{imdb_url}">{rating_val}</a>'
+            all_ep_parts = collapsed + sorted(ranges, key=lambda s: int(s.split("-")[0]))
+            episode_lines.append(f"S{int(season)}: {', '.join(all_ep_parts)}")
 
-    def get_val(val, fallback=""):
-        v = str(val).strip()
-        return v if v and v.lower() != "n/a" else fallback
+        epi_str = "\n".join(episode_lines)
+        if epi_str:
+            epi_block = f"📺 ᴇᴘɪsᴏᴅᴇs : <b>\n{epi_str}</b>"
 
-    # Formatting text
-    formatted_text = script.MOVIE_UPDATE_NOTIFY_TXT.format(
-        poster_url=get_val(movie_doc.get("poster_url")),
-        imdb_url=imdb_url,
+    genres = movie_doc.get("genres", "N/A")
+    quality_str = ", ".join(sorted(all_qualities)) if all_qualities else "N/A"
+    language_str = ", ".join(sorted(all_languages)) if all_languages else "N/A"
+    ott_str = ", ".join(sorted(all_ott_platforms)) if all_ott_platforms else "N/A"
+
+    return script.MOVIE_UPDATE_NOTIFY_TXT.format(
+        poster_url=movie_doc.get("poster_url", ""),
+        imdb_url=movie_doc.get("imdb_url", ""),
         filename=base_name,
         tag=primary_tag,
-        genres=get_val(movie_doc.get("genres"), "Drama, Action"),
-        ott=", ".join(sorted(all_ott_platforms)) if all_ott_platforms else "Amazon Prime Video",
-        quality=", ".join(sorted(all_qualities)) if all_qualities else "1080p, 720p",
-        language=", ".join(sorted(all_languages)) if all_languages else "Hindi, English",
+        genres=genres,
+        ott=ott_str,
+        quality=quality_str,
+        language=language_str,
         episodes=epi_block,
-        rating=rating_display,
+        rating=movie_doc.get("rating", "N/A"),
         search_link=temp.B_LINK
     )
-
-    # Niche ka extra space remove karne ke liye rstrip()
-    return formatted_text.rstrip()
