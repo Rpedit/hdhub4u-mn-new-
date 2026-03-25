@@ -17,43 +17,21 @@ from typing import Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
-# Precomputed sets for faster lookups
+# --- CONFIGURATION & SETS ---
 IGNORE_WORDS = {
-    "rarbg", "dub", "sub", "sample", "mkv", "aac", "combined",
-    "action", "adventure", "animation", "biography", "comedy", "crime", 
-    "documentary", "drama", "fantasy", "film-noir", "history", 
-    "horror", "music", "musical", "mystery", "romance", "sci-fi", "sport", 
-    "thriller", "war", "western", "hdcam", "hdtc", "camrip", "ts", "tc", 
-    "telesync", "dvdscr", "dvdrip", "predvd", "webrip", "web-dl", "tvrip", 
-    "hdtv", "web dl", "webdl", "bluray", "brrip", "bdrip", "360p", "480p", 
-    "720p", "1080p", "2160p", "4k", "1440p", "540p", "240p", "140p", "hevc", 
-    "hdrip", "hin", "hindi", "tam", "tamil", "kan", "kannada", "tel", "telugu", 
-    "mal", "malayalam", "eng", "english", "pun", "punjabi", "ben", "bengali", 
-    "mar", "marathi", "guj", "gujarati", "urd", "urdu", "kor", "korean", "jpn", 
-    "japanese", "nf", "netflix", "sonyliv", "sony", "sliv", "amzn", "prime", 
-    "primevideo", "hotstar", "zee5", "jio", "jhs", "aha", "hbo", "paramount", 
-    "apple", "hoichoi", "sunnxt", "viki"
+    "rarbg", "dub", "sub", "sample", "mkv", "aac", "combined", "action", "adventure", 
+    "animation", "biography", "comedy", "crime", "documentary", "drama", "fantasy", 
+    "film-noir", "history", "horror", "music", "musical", "mystery", "romance", 
+    "sci-fi", "sport", "thriller", "war", "western", "hdcam", "hdtc", "camrip", 
+    "ts", "tc", "telesync", "dvdscr", "dvdrip", "predvd", "webrip", "web-dl", 
+    "tvrip", "hdtv", "bluray", "brrip", "bdrip", "4k", "1080p", "720p", "480p", "hevc"
 }|BAD_WORDS
 
-# Constants
-CAPTION_LANGUAGES = {
-    "hin": "Hindi", "hindi": "Hindi", "tam": "Tamil", "tamil": "Tamil",
-    "kan": "Kannada", "kannada": "Kannada", "tel": "Telugu", "telugu": "Telugu",
-    "mal": "Malayalam", "malayalam": "Malayalam", "eng": "English", "english": "English",
-}
+CAPTION_LANGUAGES = {"hin": "Hindi", "hindi": "Hindi", "tam": "Tamil", "kan": "Kannada", "tel": "Telugu", "mal": "Malayalam", "eng": "English"}
+OTT_PLATFORMS = {"nf": "Netflix", "netflix": "Netflix", "sonyliv": "SonyLiv", "amzn": "Amazon Prime", "hotstar": "Hotstar", "zee5": "Zee5"}
+STANDARD_GENRES = {'Action', 'Adventure', 'Animation', 'Biography', 'Comedy', 'Crime', 'Documentary', 'Drama', 'Family', 'Fantasy', 'Horror', 'Music', 'Mystery', 'Romance', 'Sci-Fi', 'Thriller', 'War'}
 
-OTT_PLATFORMS = {
-    "nf": "Netflix", "netflix": "Netflix", "sonyliv": "SonyLiv", "amzn": "Amazon Prime Video",
-    "hotstar": "Disney+ Hotstar", "zee5": "Zee5", "jio": "JioHotstar", "aha": "Aha",
-}
-
-STANDARD_GENRES = {
-    'Action', 'Adventure', 'Animation', 'Biography', 'Comedy', 'Crime', 'Documentary',
-    'Drama', 'Family', 'Fantasy', 'Film-Noir', 'History', 'Horror', 'Music',
-    'Musical', 'Mystery', 'Romance', 'Sci-Fi', 'Sport', 'Thriller', 'War', 'Western'
-}
-
-# --- REGEX PATTERNS ---
+# --- REGEX ---
 CLEAN_PATTERN = re.compile(r'@[^ \n\r\t\.,:;!?()\[\]{}<>\\/"\'=_%]+|\bwww\.[^\s\]\)]+')
 NORMALIZE_PATTERN = re.compile(r"[._]+|[()\[\]{}:;'–!,.?_]")
 QUALITY_PATTERN = re.compile(r"\b(?:HDCam|HDTC|CamRip|TS|TC|DVDScr|DVDRip|WEBRip|WEB-DL|BluRay|BRRip|BDRip|4k|1080p|720p|480p|HEVC)\b", re.IGNORECASE)
@@ -63,39 +41,33 @@ SINGLE_REGEX = re.compile(r'\bS(\d{1,2})[^\w]*E(\d{1,3})', re.IGNORECASE)
 
 MEDIA_FILTER = filters.document | filters.video | filters.audio
 locks = defaultdict(asyncio.Lock)
-pending_updates = {}
 
-# --- HELPER FUNCTIONS ---
+# --- HELPERS ---
 def clean_mentions_links(text): return CLEAN_PATTERN.sub("", text or "").strip()
 def normalize(s): return re.sub(r"\s+", " ", NORMALIZE_PATTERN.sub(" ", s)).strip()
 def remove_ignored_words(text):
     words = {w.lower() for w in IGNORE_WORDS}
     return " ".join(w for w in text.split() if w.lower() not in words)
 
-def extract_season_episode(filename):
-    if m := RANGE_REGEX.search(filename): return int(m.group(1)), f"{int(m.group(2))}-{int(m.group(3))}"
-    if m := SINGLE_REGEX.search(filename): return int(m.group(1)), m.group(2)
-    return None, None
-
 def extract_media_info(filename, caption):
     filename = normalize(clean_mentions_links(filename).title())
-    caption_clean = clean_mentions_links(caption).lower() if caption else ""
-    unified = f"{caption_clean} {filename.lower()}".strip()
-
-    season, episode = extract_season_episode(filename)
-    tag = "#SERIES" if season else "#MOVIE"
+    unified = f"{clean_mentions_links(caption).lower() if caption else ''} {filename.lower()}".strip()
     
-    # Base name cleaning
-    base_raw = filename
+    m_range = RANGE_REGEX.search(filename)
+    m_single = SINGLE_REGEX.search(filename)
+    season = int(m_range.group(1)) if m_range else (int(m_single.group(1)) if m_single else None)
+    episode = f"{int(m_range.group(2))}-{int(m_range.group(3))}" if m_range else (m_single.group(2) if m_single else None)
+    
     year_match = YEAR_PATTERN.search(unified)
     year = year_match.group(0) if year_match else None
     
-    base_name = normalize(remove_ignored_words(base_raw))
+    base_name = normalize(remove_ignored_words(filename))
     if year and year not in base_name: base_name += f" {year}"
     
     return {
-        "base_name": base_name, "tag": tag, "season": season, "episode": episode,
-        "year": year, "quality": QUALITY_PATTERN.findall(unified),
+        "base_name": base_name, "tag": "#SERIES" if season else "#MOVIE", 
+        "season": season, "episode": episode, "year": year,
+        "quality": QUALITY_PATTERN.findall(unified),
         "ott": [p for k, p in OTT_PLATFORMS.items() if k in unified],
         "lang": [v for k, v in CAPTION_LANGUAGES.items() if k in unified]
     }
@@ -105,6 +77,10 @@ def extract_media_info(filename, caption):
 async def media_handler(bot, message):
     media = getattr(message, message.media.value)
     if not media: return
+    
+    # FIX: Assign file_type manually to avoid AttributeError in save_file
+    media.file_type = message.media.value 
+    
     success, _ = await save_file(media)
     if success and await db.movie_update_status(bot.me.id):
         await process_and_send_update(bot, media.file_name, message.caption or "")
@@ -130,9 +106,9 @@ async def _process_with_lock(bot, filename, info, base_name):
         if not details or details.get("error"):
             details = await get_movie_details(base_name) or {}
 
-        # FIX: Ensure IMDb URL is always used
+        # IMDb URL FIX
         imdb_id = details.get("imdb_id")
-        imdb_url = f"https://www.imdb.com/title/{imdb_id}" if imdb_id else details.get("url", "")
+        imdb_url = f"https://www.imdb.com/title/{imdb_id}" if imdb_id else details.get("url", "https://www.imdb.com")
 
         movie_doc = {
             "_id": base_name, "files": [file_data],
@@ -145,16 +121,12 @@ async def _process_with_lock(bot, filename, info, base_name):
     else:
         if any(f["filename"] == filename for f in movie_doc["files"]): return
         await db.movie_updates.update_one({"_id": base_name}, {"$push": {"files": file_data}})
-        await schedule_update_call(bot, base_name)
-
-async def schedule_update_call(bot, base_name):
-    await asyncio.sleep(5)
-    await update_movie_message(bot, base_name)
+        await asyncio.sleep(5)
+        await update_movie_message(bot, base_name)
 
 async def send_movie_update(bot, base_name):
     movie_doc = await db.movie_updates.find_one({"_id": base_name})
     if not movie_doc: return
-    
     text = generate_movie_message(movie_doc, base_name)
     buttons = InlineKeyboardMarkup([[InlineKeyboardButton('ɢᴇᴛ ғɪʟᴇs', url=f"https://t.me/{temp.U_NAME}?start=getfile-{base_name.replace(' ', '-')}")]])
     
@@ -197,12 +169,11 @@ def generate_movie_message(movie_doc, base_name):
         lines = [f"S{s}: {', '.join(sorted(list(eps)))}" for s, eps in sorted(episodes.items())]
         epi_str = f"📺 ᴇᴘɪsᴏᴅᴇs : <b>" + "\n".join(lines) + "</b>"
 
-    # IMDB LINK FIX: Rating converts to clickable IMDb URL
+    # IMDB LINK IN RATING
     raw_rating = str(movie_doc.get("rating", "6.5")).strip()
     imdb_url = movie_doc.get("imdb_url") or "https://www.imdb.com"
     rating_display = f'<a href="{imdb_url}">{raw_rating}</a>'
 
-    # N/A & Empty line removal
     def get_val(val, fallback=""):
         v = str(val).strip()
         return v if v and v.lower() != "n/a" else fallback
@@ -220,5 +191,5 @@ def generate_movie_message(movie_doc, base_name):
         rating=rating_display,
         search_link=temp.B_LINK
     )
-    # Remove extra spaces and empty lines
+    # FIX: Remove extra empty lines and spaces
     return "\n".join([line for line in msg.splitlines() if line.strip()])
