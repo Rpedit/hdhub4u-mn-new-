@@ -269,7 +269,7 @@ async def _fetch_tmdb_data(query: str, api_key=None):
 
 async def get_movie_details(query, bulk=False, id=False, file=None):
     if not id:
-        from utils import listx_to_str, imdb
+        from utils import list_to_str, imdb
         query = (query.strip()).lower()
         title = query
         year_val = None
