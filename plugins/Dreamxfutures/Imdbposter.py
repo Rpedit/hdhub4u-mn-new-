@@ -113,7 +113,7 @@ async def _tmdb_get(path, params=None, api_key=None):
         }
 
     session = await get_session()
-    async with session.get(url, params=_params, headers=_headers) as resp:
+    async with session.get(url, params=_params, headers=_headers, ssl=False) as resp:
         resp.raise_for_status()
         return await resp.json()
 
@@ -127,7 +127,7 @@ async def _fetch_media_details(media_type: str, media_id: int, api_key=None):
 async def _search_media_id(query: str, api_key=None):
     """Search TMDB for the best matching movie/TV show and return (media_type, media_id)."""
     title, year = _extract_title_and_year(query)
-    params = {'query': title, 'language': 'en-US', 'page': 1, 'include_adult': False}
+    params = {'query': title, 'language': 'en-US', 'page': 1, 'include_adult': 'false'}
     result = await _tmdb_get('search/multi', params=params, api_key=api_key)
     multi_results = result.get('results', [])
 
@@ -135,19 +135,15 @@ async def _search_media_id(query: str, api_key=None):
         if not s1 or not s2:
             return 0
         return SequenceMatcher(None, s1.lower(), s2.lower()).ratio()
-
     scored_results = []
     for r in multi_results:
         ratio = get_ratio(r.get('title') or r.get('name'), title)
-        if ratio >= 0.85:
+        if ratio >= 0.6:   # 0.85 → 0.6
             scored_results.append((r, ratio))
-
     if not scored_results:
-        scored_results = [(r, get_ratio(r.get('title') or r.get('name'), title)) for r in multi_results]
-
+        scored_results = [(r, get_ratio(r.get('title') or r.get('name'), title))for r in multi_results[:10]]
     today = datetime.utcnow().date()
     candidates_past, candidates_upcoming = [], []
-
     for r, ratio in scored_results:
         mtype = r.get('media_type')
         rd_str = r.get('release_date') or r.get('first_air_date')
@@ -157,20 +153,21 @@ async def _search_media_id(query: str, api_key=None):
             rd_date = datetime.strptime(rd_str, '%Y-%m-%d').date()
         except ValueError:
             continue
-        if year and rd_date.year != year:
-            continue
+        if year:
+            if abs(rd_date.year - year) > 1:
+                continue
         if mtype == 'movie':
             try:
                 details = await _fetch_media_details(mtype, r['id'], api_key=api_key)
                 runtime = details.get('runtime')
                 is_video = details.get('video', False)
+
                 if is_video or (runtime and runtime < MIN_RUNTIME):
                     continue
             except Exception:
                 continue
         candidate = {'type': mtype, 'id': r['id'], 'date': rd_date, 'score': r.get('popularity', 0), 'ratio': ratio}
         (candidates_upcoming if rd_date > today else candidates_past).append(candidate)
-
     candidates_past.sort(key=lambda x: (x['ratio'], x['date'], x['score']), reverse=True)
     candidates_upcoming.sort(key=lambda x: (x['ratio'], x['date'], x['score']), reverse=True)
     final = candidates_past or candidates_upcoming
