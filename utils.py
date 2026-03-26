@@ -558,6 +558,23 @@ def list_to_str(k):
     else:
         return ' '.join(f'{elem}, ' for elem in k)
 
+def listx_to_str(k):
+    if k is None or k == "":
+        return "N/A"
+    
+    # Handle non-iterable types first
+    if not hasattr(k, '__iter__') or isinstance(k, (str, int, float)):
+        return str(k)
+    
+    result = []
+    for elem in k:
+        if elem and str(elem).strip():
+            result.append(str(elem).strip())
+    
+    if MAX_LIST_ELM and len(result) > MAX_LIST_ELM:
+        result = result[:int(MAX_LIST_ELM)]
+    
+    return ', '.join(result) if result else "N/A"
 def last_online(from_user):
     time = ""
     if from_user.is_bot:
