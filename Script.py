@@ -278,12 +278,11 @@ Mᴇꜱꜱᴀɢᴇ : <b>{}</b>"""
 🎬 ǫᴜᴀʟɪᴛʏ : <b>{quality}</b>
 🔉 ᴀᴜᴅɪᴏ    : <b>{language}</b>
 🌟 ʀᴀᴛɪɴɢ   : <b>{rating}</b>
-{episodes}</blockquote>
+{episodes} </blockquote>
 ─┉─•✦•─┉─
 
 🔍 <b>Sᴇᴀʀᴄʜ →</b> {search_link}
 """
-
 
     IMDB_TEMPLATE_TXT = """<b><a href={url}>{title} (<a href={url}/releaseinfo>{year}</a>)
 
