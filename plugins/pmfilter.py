@@ -1839,24 +1839,18 @@ async def auto_filter(client, msg, spoll=False):
 
                 settings = await get_settings(message.chat.id)
                 if not files:
-                    if settings.get("spell_check"):
-                        # AI typing feel dene ke liye normal reply
-                        ai_sts = await message.reply_text('🤖 ᴘʟᴇᴀꜱᴇ ᴡᴀɪᴛ, ᴀɪ ɪꜱ ᴄʜᴇᴄᴋɪɴɢ ʏᴏᴜʀ ꜱᴘᴇʟʟɪɴɢ...')
-                        
-                        is_misspelled = await ai_spell_check(chat_id=message.chat.id, wrong_name=search)
+            if settings.get("spell_check"):
+                is_misspelled = await ai_spell_check(chat_id=message.chat.id, wrong_name=search)
 
-                        if is_misspelled:
-                            await ai_sts.edit(f'✅ Aɪ Sᴜɢɢᴇsᴛᴇᴅ: <code>{is_misspelled}</code>\n🔍 Searching for it...')
-                            message.text = is_misspelled
-                            await ai_sts.delete()
-                            return await auto_filter(client, message)
-                        
-                        await ai_sts.delete()
-                        result = await advantage_spell_chok(client, message)
-                        return result
-                    else:
-                        result = await advantage_spell_chok(client, message)
-                        return result
+                if is_misspelled:
+                    message.text = is_misspelled
+                    return await auto_filter(client, message)
+                
+                result = await advantage_spell_chok(client, message)
+                return result
+            else:
+                result = await advantage_spell_chok(client, message)
+                return result
             else:
                 return
         else:
