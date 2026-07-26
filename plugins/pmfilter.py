@@ -1808,7 +1808,7 @@ async def auto_filter(client, msg, spoll=False):
                 message_text = message.text or ""
                 search = message_text.lower()
 
-                # Typing action dikhane ke liye:
+                                # Typing action dikhane ke liye:
                 # await client.send_chat_action(message.chat.id, enums.ChatAction.TYPING)
 
                 # Sticker aur Button commented hain (Kuch bhi remove nahi kiya)
@@ -1838,18 +1838,19 @@ async def auto_filter(client, msg, spoll=False):
                 files, offset, total_results = await get_search_results(message.chat.id, search, offset=0, filter=True)
 
                 settings = await get_settings(message.chat.id)
-                    if not files:
-        if settings.get("spell_check"):
-            is_misspelled = await ai_spell_check(chat_id=message.chat.id, wrong_name=search)
-            if is_misspelled:
-                message.text = is_misspelled
-                return await auto_filter(client, message)
-            
-            result = await advantage_spell_chok(client, message)
-            return result
-        else:
-            result = await advantage_spell_chok(client, message)
-            return result
+                if not files:
+                    if settings.get("spell_check"):
+                        is_misspelled = await ai_spell_check(chat_id=message.chat.id, wrong_name=search)
+                        if is_misspelled:
+                            message.text = is_misspelled
+                            return await auto_filter(client, message)
+                        
+                        result = await advantage_spell_chok(client, message)
+                        return result
+                    else:
+                        result = await advantage_spell_chok(client, message)
+                        return result
+
 
             else:
                 return
