@@ -3,208 +3,424 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Deendayal dhakadd | {{file_name}}</title>
-    <link rel="stylesheet" href="https://unpkg.com/sheryjs/dist/Shery.css" />
-    <link rel="stylesheet" href="https://biisal.github.io/Resources/StreamCSS.css">
-    <link rel="stylesheet" href="https://biisal.github.io/Resources/playerCss.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ALL Movies Studio | {{file_name}}</title>
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css"
-        integrity="sha512-z3gLpd7yknf1YoNbCzqRKc4qyor8gaKU1qmn+CShxbuBusANI9QpRohGBreCFkKxLhei6S9CQXFEbbKuqLg0DA=="
-        crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" />
+
+    <!-- Google Cast Official Engine -->
+    <script type="text/javascript" src="https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1"></script>
+    
+    <!-- HLS.js Multi-Codec & Universal Streaming Engine -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    
     <script src="https://cdn.tailwindcss.com"></script>
 
+    <style>
+        body {
+            background: radial-gradient(circle at top left, #1e1b4b, #0f172a, #090d16);
+            color: #f1f5f9;
+            font-family: 'Josefin Sans', sans-serif;
+            overflow-x: hidden;
+            min-height: 100vh;
+            touch-action: manipulation;
+        }
+
+        /* Fully Transparent Glassmorphism Styling */
+        .glass-card {
+            background: rgba(15, 23, 42, 0.45);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 18px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.45);
+        }
+
+        /* Premium Action Buttons Styling */
+        .player-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+            padding: 14px 18px;
+            border-radius: 14px;
+            font-weight: 700;
+            letter-spacing: 0.6px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .player-btn:hover {
+            transform: translateY(-2px) scale(1.01);
+            filter: brightness(1.2);
+        }
+
+        /* Bright Theme Buttons */
+        .btn-copy { background: linear-gradient(135deg, rgba(59, 130, 246, 0.95), rgba(29, 78, 216, 0.95)); color: #ffffff; box-shadow: 0 4px 20px rgba(59, 130, 246, 0.3); }
+        .btn-vlc { background: linear-gradient(135deg, rgba(255, 107, 0, 0.95), rgba(211, 84, 0, 0.95)); color: #ffffff; box-shadow: 0 4px 20px rgba(255, 107, 0, 0.3); }
+        .btn-mx { background: linear-gradient(135deg, rgba(0, 136, 255, 0.95), rgba(0, 85, 179, 0.95)); color: #ffffff; box-shadow: 0 4px 20px rgba(0, 136, 255, 0.3); }
+
+        .btn-download { 
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.95), rgba(4, 120, 87, 0.95)); 
+            color: #ffffff; 
+            box-shadow: 0 6px 25px rgba(16, 185, 129, 0.35);
+            border: 1px solid rgba(52, 211, 153, 0.4);
+        }
+
+        /* Toast Popup */
+        #toast {
+            position: fixed;
+            bottom: 25px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            opacity: 0;
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+
+        #toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #090d16; }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 10px; }
+    </style>
 </head>
-<!-- this code is written by @biisal tg:biisal-files  -->
-<!-- stealing credit doesn't make you developer..so try to give full credit to the developer 😊 u will not loose anything for giving proper credit.   -->
 
 <body>
-    <nav>
-        <div class="nleft">
-            <a href="https://t.me/Deendayal_Hindi_Movies">
-                <!-- if u are trying to change the header name please remove the title text from bottom line  -->
-                <h3 id="heading" style="z-index: 100;" class="magnet">Deendayal Dhakadd</h3>
-            </a>
-        </div>
-        <div class="nryt">
-            <a class="home-btn magnet" href="#main" onclick="toggleWidthnav(this)">Home</a>
 
-            <a href="#sec1" class="about-btn magnet" onclick="toggleWidthnav(this)">About</a>
+    <!-- Header / Navbar -->
+    <nav class="sticky top-0 z-50 glass-card mx-3 my-3 px-4 py-3 md:px-8 max-w-7xl md:mx-auto">
+        <div class="flex justify-between items-center">
+            <a href="https://t.me/+sIOgiCYLtBxhNGI1" class="flex items-center gap-2">
+                <h3 class="text-2xl font-extrabold bg-gradient-to-r from-blue-400 via-indigo-300 to-purple-400 bg-clip-text text-transparent tracking-wide">Hubstream</h3>
+            </a>
+
+            <div class="flex items-center gap-3 sm:gap-6 text-xs sm:text-sm font-semibold">
+                <a class="hover:text-blue-400 transition" href="#main">Home</a>
+                <a href="#sec1" class="hover:text-blue-400 transition hidden sm:inline-block">Welcome</a>
+                <a href="#sec2" class="hover:text-blue-400 transition">Channels</a>
+                <a href="#sec3" class="hover:text-blue-400 transition hidden sm:inline-block">Bots</a>
+                <a href="#sec4" class="bg-blue-600/80 hover:bg-blue-600 px-3.5 py-1.5 rounded-xl text-white transition shadow-lg border border-blue-400/30 backdrop-blur-md">Support</a>
+            </div>
         </div>
     </nav>
-    <center>
-        <div class="about-nav">
-            <a href="#sec1" class="wlcm magnet" onclick="toggleWidth(this)">Welcome</a>
-            <a href="#sec2" class="abt-chnl magnet" onclick="toggleWidth(this)">Channels</a>
-            <a href="#sec3" class="magnet bot-btn" onclick="toggleWidth(this) , bot_btn_clicked()">Bots</a>
-            <a href="#sec4" class="magnet contact-btn" onclick="toggleWidth(this)">Let's Talk</a>
-        </div>
-    </center>
-    <!-- this code is written by @biisal tg:biisal-files  -->
-    <!-- stealing credit doesn't make you developer..so try to give full credit to the developer 😊 u will not loose anything for giving proper credit.   -->
 
-    <div class="outer">
+    <div class="outer max-w-5xl mx-auto px-3 sm:px-4 mt-6">
         <div class="inner">
             <div class="main" id="main">
-                <video id="player" class="player" src="{{file_url}}" type="video/mp4" playsinline controls
-                    width="100%"></video>
-                <div class="player"></div>
-                <div class="file-name">
-                    <h4>File name : </h4>
-                    <br>
-                    <p id="myDiv">{{file_name}}</p>
+                
+                <!-- Status Bar -->
+                <div class="flex items-center justify-between mb-3 px-1">
+                    <span class="text-xs text-slate-300 font-semibold uppercase tracking-wider flex items-center">
+                        <i class="fa-solid fa-bolt text-emerald-400 mr-1.5"></i> Universal Codec Engine Active
+                    </span>
                 </div>
-                <div class="downloadBtn">
-                    <button class="magnet" onclick="vlc_player()"><img src="https://i.postimg.cc/15TQ4y7B/vlc.png"
-                            alt="">watch in VLC PLAYER</button>
-                    <button class="magnet" onclick="mx_player()"><img src="https://i.postimg.cc/sx4Msv4T/mx.png"
-                            alt="">watch in MX PLAYER</button>
-                    <button class="magnet" onclick="playit_player()"><img src="https://i.postimg.cc/RVGWYJFF/playit.png"
-                            alt="">watch in PLAYit
-                        PLAYER</button>
-                    <button class="magnet" onclick="km_player()"><img src="https://i.postimg.cc/wT9tFQ9Z/km.png"
-                            alt="">watch in KM PLAYER</button>
-                    <button class="magnet" onclick="s_player()"><img src="https://i.postimg.cc/XYJr6NGg/s.png"
-                            alt="">watch in S PLAYER</button>
-                    <button class="magnet" onclick="hd_player()"><img src="https://i.postimg.cc/rFT43LNh/hd.png"
-                            alt="">watch in HD
-                        PLAYER(4K)</button>
-                    <button class="magnet" onclick="bisalDownload()"><img style="height: 35px;"
-                            src="https://i.postimg.cc/Zncc9YLq/Pngtree-download-icon-3581467.png" alt="">download video
+
+                <!-- Video Player Container -->
+                <div class="w-full rounded-2xl overflow-hidden shadow-2xl bg-black/60 backdrop-blur-xl border border-white/10 relative">
+                    <video id="player" class="w-full aspect-video object-contain" playsinline controls crossorigin="anonymous" preload="auto">
+                        Your browser does not support playing this video directly.
+                    </video>
+
+                    <!-- Exact Matching Resume Overlay -->
+                    <div id="resumeModal" class="hidden absolute inset-0 bg-black/90 flex items-center justify-center p-3 z-30 transition-all duration-300">
+                        <div class="bg-white text-gray-800 rounded-md py-4 px-4 sm:px-6 max-w-sm sm:max-w-md w-11/12 text-center shadow-2xl border border-gray-200">
+                            <p class="text-xs sm:text-sm font-normal text-gray-700 mb-3.5 leading-snug">
+                                You were watching this video at <span id="resumeTimeText" class="font-bold text-gray-900">00:00:00</span>. Do you want to resume?
+                            </p>
+                            <div class="flex flex-row gap-2.5 justify-center items-center">
+                                <button onclick="confirmResume()" class="bg-[#16a34a] hover:bg-[#15803d] text-white font-medium py-1.5 px-3.5 rounded text-xs sm:text-sm transition active:scale-95">
+                                    Resume
+                                </button>
+                                <button onclick="confirmRestart()" class="bg-[#ea580c] hover:bg-[#c2410c] text-white font-medium py-1.5 px-3.5 rounded text-xs sm:text-sm transition active:scale-95">
+                                    Start from beginning
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Smart Fallback Overlay -->
+                    <div id="playerErrorNotice" class="hidden absolute inset-0 bg-slate-950/95 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-20">
+                        <i class="fa-solid fa-triangle-exclamation text-amber-400 text-4xl mb-3 animate-pulse"></i>
+                        <h3 class="text-lg font-bold text-white mb-1">Slow Loading / Format Restriction</h3>
+                        <p class="text-xs text-slate-300 mb-4 max-w-md">Agar video browser me load hone me samay le rahi hai, toh bina wait kiye app me chalaayein:</p>
+                        <div class="flex flex-wrap justify-center gap-3">
+                            <button onclick="vlc_player()" class="bg-orange-600 hover:bg-orange-700 text-white font-bold px-5 py-2.5 rounded-xl text-xs flex items-center gap-2 shadow-lg">
+                                <img src="https://i.postimg.cc/15TQ4y7B/vlc.png" class="w-5 h-5"> Watch in VLC
+                            </button>
+                            <button onclick="mx_player()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-5 py-2.5 rounded-xl text-xs flex items-center gap-2 shadow-lg">
+                                <img src="https://i.postimg.cc/sx4Msv4T/mx.png" class="w-5 h-5"> Watch in MX Player
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- File Info Card (Clean Movie Name Only) -->
+                <div class="file-name my-6 p-4 glass-card text-center md:text-left">
+                    <p id="myDiv" class="break-all text-slate-100 text-sm md:text-base font-bold tracking-wide"></p>
+                </div>
+
+                <!-- Translucent Compact Buttons Grid -->
+                <div class="downloadBtn grid grid-cols-1 sm:grid-cols-3 gap-3.5 my-6">
+                    <button class="player-btn btn-copy" onclick="copyStreamLink()">
+                        <i class="fa-solid fa-copy text-lg"></i> Copy Link
+                    </button>
+
+                    <button class="player-btn btn-vlc" onclick="vlc_player()">
+                        <img src="https://i.postimg.cc/15TQ4y7B/vlc.png" class="w-5 h-5 object-contain" alt="VLC"> VLC Player
+                    </button>
+
+                    <button class="player-btn btn-mx" onclick="mx_player()">
+                        <img src="https://i.postimg.cc/sx4Msv4T/mx.png" class="w-5 h-5 object-contain" alt="MX"> MX Player
+                    </button>
+
+                    <button class="player-btn btn-download sm:col-span-3 py-4 text-base font-extrabold" onclick="bisalDownload()">
+                        <img src="https://i.postimg.cc/Zncc9YLq/Pngtree-download-icon-3581467.png" class="w-6 h-6 object-contain" alt="Download"> Download Video
                     </button>
                 </div>
-
             </div>
-            <div class="abt">
-                <div class="about">
-                    <div class="about-dets">
-                        <div class="abt-sec" id="sec1" style="padding: 160px 30px;">
-                            <h1 style="text-align: center;">WELCOME TO OUR <Span>STREAMING</Span> PAGE</h1>
-                            <p style="text-align: center; line-height: 2;word-spacing: 2px;  letter-spacing: 0.8px;">
-                                We're
-                                thrilled to have <span>you</span> here.
-                                Get ready for an
-                                amazing <span>experience</span>
-                                filled with <span>entertainment</span>, <span>fun</span>, and <span>surprises</span>.
-                                Grab
-                                your snacks, sit back, and <span>enjoy</span> the show!
+
+            <!-- Info Section -->
+            <div class="abt space-y-8 my-12">
+                <div class="about glass-card p-6 md:p-10">
+                    <div class="about-dets space-y-10">
+                        <div class="abt-sec text-center" id="sec1">
+                            <h1 class="text-xl md:text-3xl font-extrabold mb-3">WELCOME TO OUR <span class="text-blue-400">STREAMING</span> PAGE</h1>
+                            <p class="max-w-2xl mx-auto text-slate-300 text-xs md:text-sm leading-relaxed">
+                                Enjoy unlimited entertainment, smooth playback, and direct streaming options right inside your preferred apps!
                             </p>
                         </div>
-                        <div class="abt-sec" id="sec2">
-                            <h1>OUR ALL <span>CHANNELS</span> LIST</h1>
-                            <div class="links chnl-link">
-                                <a class="magnet" href="https://t.me/Deendayal_dhakadd"><button>Update Channel </button></a>
-                                <a class="magnet" href="https://t.me/Deendayal_Hindi_Movies"><button> Movie Request Group </button></a>
-                                <a class="magnet" href="https://t.me/+UgmTJmg9u90yMTNl"><button>Main Channel </button></a>
-                            </div>
-                        </div>
-                        <div class="abt-sec" id="sec3">
-                            <h1>OUR ALL <span>BOTS</span> LIST</h1>
-                            <div class="links bot-link">
-                                <a class="magnet" href="https://t.me/Nobita_Files_Filter_bot"><button>Chat Gpt Bot
-                                        </button></a>
-                                <a class="magnet" href="https://t.me/Nobita_Files_Filter_bot"><button>reaction Bot 
-                                        </button></a>
-                            </div>
-                        </div>
-                        <div class="abt-sec" id="sec4">
-                            <!-- this code is written by @biisal tg:biisal-files  -->
-                            <!-- stealing credit doesn't make you developer..so try to give full credit to the developer 😊 u will not loose anything for giving proper credit.   -->
 
-                            <p style="text-align: center;">We Can Tal'k For Your Support And You Can Report Through
-                                Telegram</p>
-                            <div class="links contact">
-                                <a href="http://t.me/Deendayal_dhakad_Contact"><button>Contact</button></a>
+                        <div class="abt-sec text-center" id="sec2">
+                            <h1 class="text-lg font-bold mb-4 text-blue-400">CHANNELS LIST</h1>
+                            <div class="flex flex-col sm:flex-row gap-3 justify-center">
+                                <a href="https://t.me/+sIOgiCYLtBxhNGI1" class="bg-slate-800/60 hover:bg-slate-700/80 px-6 py-2.5 rounded-xl text-xs sm:text-sm transition border border-white/10 backdrop-blur-md">Update Channel</a>
+                                <a href="https://t.me/hdhub4ucommunity" class="bg-slate-800/60 hover:bg-slate-700/80 px-6 py-2.5 rounded-xl text-xs sm:text-sm transition border border-white/10 backdrop-blur-md">Movie Request Group</a>
+                                <a href="https://www.youtube.com/@LEGEND44477" class="bg-slate-800/60 hover:bg-slate-700/80 px-6 py-2.5 rounded-xl text-xs sm:text-sm transition border border-white/10 backdrop-blur-md">YouTube Channel</a>
                             </div>
+                        </div>
+
+                        <div class="abt-sec text-center" id="sec3">
+                            <h1 class="text-lg font-bold mb-4 text-blue-400">BOTS LIST</h1>
+                            <div class="flex flex-col sm:flex-row gap-3 justify-center">
+                                <a href="https://t.me/" class="bg-slate-800/60 hover:bg-slate-700/80 px-6 py-2.5 rounded-xl text-xs sm:text-sm transition border border-white/10 backdrop-blur-md">Chat GPT Bot</a>
+                                <a href="https://t.me/" class="bg-slate-800/60 hover:bg-slate-700/80 px-6 py-2.5 rounded-xl text-xs sm:text-sm transition border border-white/10 backdrop-blur-md">Reaction Bot</a>
+                            </div>
+                        </div>
+
+                        <div class="abt-sec text-center" id="sec4">
+                            <p class="text-slate-300 text-xs mb-3">Support & Queries via Telegram</p>
+                            <a href="https://t.me/Talk2Rpeditz_Bot" class="inline-block bg-blue-600/80 hover:bg-blue-600 px-8 py-3 rounded-full text-sm font-bold transition shadow-lg border border-blue-400/30">Contact Us</a>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-        <footer>
-            <div class="mid">
-                <h1 class="mid-text">VISIT <a href="#sec3" onclick="bot_btn_clicked()"><span>OUR BOTS LIST</span></a>
-                    FOR
-                    MORE
-                    INFO</h1>
-            </div>
 
-            <div class="last-text">
-                <p style="font-weight: 500;">
-                    Welcome To Our Online Streaming Platform! Our Website Allows Users To Generate Streamable Links For
-                    Various Files Using Telegram Bots. Please Note That We Are Not Responsible For The Content Shared Or
-                    Streamed Through Our Service. Users Are Encouraged To Respect Copyright Laws And Adhere To Our
-                    Community
-                    Guidelines. Enjoy Easy, Hassle-Free File Streaming.
-                </p>
-            </div>
-            <center>
-
-                <div class="movie-cont">
-                    <a href="https://t.me/Deendayal_Hindi_Movies">
-                        <div class="movieSug">
-                            <div class="movieDets">
-
-                            </div>
-                            <div class="movieimg">
-                                <img src="">
-                            </div>
-                        </div>
-                    </a>
-                    <div class="low-width-movie-dets">
-                        <div class="movieStsBar">
-                            <div class="movieDets-mini">
-
-                            </div>
-                        </div>
-                    </div>
-                    <button class="ranMovBtn" onclick="getDets()">Get More Movies Suggestion</button>
+        <!-- Footer -->
+        <footer class="mt-12 border-t border-white/10 pt-6 pb-10 text-center">
+            <div class="copyright text-xs text-slate-400 space-y-2">
+                <h5>Copyright © 2025 <a href="https://t.me/+sIOgiCYLtBxhNGI1" class="font-bold text-slate-200">Hubstream</a>. All Rights Reserved.</h5>
+                <div class="icons py-1">
+                    <a href="https://t.me/+sIOgiCYLtBxhNGI1" class="text-blue-400 hover:text-blue-300"><i class="fa-brands fa-telegram fa-xl"></i></a>
                 </div>
-
-            </center>
-            <!-- this code is written by @biisal tg:biisal-files  -->
-            <!-- stealing credit doesn't make you developer..so try to give full credit to the developer 😊 u will not loose anything for giving proper credit.   -->
-
-
-            <center>
-                <div class="copyright">
-                    <h5 class="text-center">Copyright © 2024 <a href="https://t.me/Deendayal_Hindi_Movies"><span
-                                style="font-weight: 700;">Deendayal dhakadd</span></a>. All
-                        Rights Reserved.</h5>
-                    <div class="icons">
-                        <a href="https://t.me/Deendayal_Hindi_Movies"><i class="fa-brands fa-telegram fa-lg"></i></a>
-                        
-                    </div>
-                    <h4 style="font-weight: 700;">This Page Is Made By <a
-                            href="https://t.me/Deendayal_Hindi_Movies"><span>Deendayal dhakadd </span></a></h4>
-                </div>
-            </center>
+                <h4>This Page Is Made By <a href="https://t.me/+sIOgiCYLtBxhNGI1" class="text-blue-400 font-semibold">RPEDITZ</a></h4>
+            </div>
         </footer>
-</body>
+    </div>
 
+    <!-- Toast Notification Overlay -->
+    <div id="toast" class="glass-card px-5 py-3 text-xs font-bold text-slate-100 border border-blue-500/40 shadow-2xl flex items-center gap-2">
+        <i class="fa-solid fa-circle-check text-emerald-400 text-base"></i>
+        <span id="toastMsg">Action completed!</span>
+    </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.155.0/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/gh/automat/controlkit.js@master/bin/controlKit.min.js"></script>
-<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/sheryjs/dist/Shery.js"></script>
-<script>
-    document.addEventListener("DOMContentLoaded", function () {
-        const uncopyableElement = document.querySelector(".uncopyable");
+    <!-- Scripts -->
+    <script>
+        const fileUrl = "{{file_url}}";
+        const fileName = "{{file_name}}";
+        const storageKey = "watch_progress_" + btoa(fileUrl).replace(/=/g, '');
+        let savedTime = 0;
 
-        uncopyableElement.addEventListener("selectstart", function (event) {
-            event.preventDefault();
+        window.addEventListener("DOMContentLoaded", function() {
+            document.getElementById("myDiv").innerText = cleanMovieName(fileName);
+            initFastStream();
+            initAutoResumeModal();
         });
-    });
-</script>
-<script src="js/wow.min.js"></script>
-<script>
-    new WOW().init();
-</script>
-<script src="https://cdn.plyr.io/3.6.9/plyr.js"></script>
-<script src="https://biisal.github.io/Resources/StreamJs.js"></script>
-<script src="script.js"></script>
 
+        // Initialize Google Cast SDK
+        window['__onGCastApiAvailable'] = function(isAvailable) {
+            if (isAvailable && window.cast) {
+                try {
+                    cast.framework.CastContext.getInstance().setOptions({
+                        receiverApplicationId: chrome.cast.media.DEFAULT_MEDIA_RECEIVER_APP_ID,
+                        autoJoinPolicy: chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED
+                    });
+                } catch(e) {}
+            }
+        };
+
+        // Extract Clean Movie Title Without Any Technical Tags
+        function cleanMovieName(rawName) {
+            if (!rawName) return "Movie Stream";
+            
+            // Remove file extensions
+            let clean = rawName.replace(/\.(mkv|mp4|webm|avi|flv|mov)$/i, "");
+            
+            // Cut off at first technical metadata tag or quality indicator
+            const pattern = /[\.\_\s\(-](480p|720p|1080p|2160p|4k|2k|360p|hd|sd|bluray|web-dl|web|webrip|hdr|hdrip|hevc|x264|x265|h264|h265|10bit|ds4k|dvdrip|cam|camrip|nf|amzn|esub|sub|hindi|english|telugu|tamil|kannada|malayalam|bengali|marathi|gujarati|punjabi|dubbed|dual|multi|aac|ac3|dts|2\.0|5\.1|7\.1).*$/i;
+            
+            clean = clean.split(pattern)[0];
+            clean = clean.replace(/[\._]/g, " ").trim();
+            
+            return clean || rawName;
+        }
+
+        // Anti-Buffering Engine with Universal x264/x265/HEVC/10Bit/MKV Support
+        function initFastStream() {
+            const player = document.getElementById("player");
+            const errNotice = document.getElementById("playerErrorNotice");
+            let stallTimer = null;
+
+            if (Hls.isSupported() && (fileUrl.includes('.m3u8') || fileUrl.includes('hls'))) {
+                const hls = new Hls({
+                    maxBufferLength: 60,
+                    maxMaxBufferLength: 120,
+                    enableWorker: true,
+                    lowLatencyMode: false
+                });
+                hls.loadSource(fileUrl);
+                hls.attachMedia(player);
+                hls.on(Hls.Events.ERROR, function(event, data) {
+                    if (data.fatal) {
+                        errNotice.classList.remove("hidden");
+                    }
+                });
+            } else {
+                player.src = fileUrl;
+            }
+
+            player.addEventListener("error", function() {
+                errNotice.classList.remove("hidden");
+            });
+
+            // Extended Stall Window for Heavy Codecs
+            player.addEventListener("waiting", function() {
+                clearTimeout(stallTimer);
+                stallTimer = setTimeout(function() {
+                    if (player.readyState < 3) {
+                        errNotice.classList.remove("hidden");
+                    }
+                }, 20000);
+            });
+
+            player.addEventListener("playing", function() {
+                clearTimeout(stallTimer);
+                errNotice.classList.add("hidden");
+            });
+
+            player.addEventListener("canplay", function() {
+                clearTimeout(stallTimer);
+            });
+        }
+
+        // Format Seconds to HH:MM:SS
+        function formatTime(seconds) {
+            const sec = Math.floor(seconds);
+            const hrs = Math.floor(sec / 3600);
+            const mins = Math.floor((sec % 3600) / 60);
+            const secs = sec % 60;
+            const pad = (n) => n.toString().padStart(2, '0');
+            return `${pad(hrs)}:${pad(mins)}:${pad(secs)}`;
+        }
+
+        // Resume Prompt Handler
+        function initAutoResumeModal() {
+            const player = document.getElementById("player");
+            const modal = document.getElementById("resumeModal");
+            const timeText = document.getElementById("resumeTimeText");
+
+            player.addEventListener("loadedmetadata", function() {
+                const storedVal = localStorage.getItem(storageKey);
+                if (storedVal && parseFloat(storedVal) > 5) {
+                    savedTime = parseFloat(storedVal);
+                    timeText.innerText = formatTime(savedTime);
+                    modal.classList.remove("hidden");
+                }
+            });
+
+            player.addEventListener("timeupdate", function() {
+                if (player.currentTime > 0) {
+                    localStorage.setItem(storageKey, player.currentTime);
+                }
+            });
+
+            player.addEventListener("ended", function() {
+                localStorage.removeItem(storageKey);
+            });
+        }
+
+        function confirmResume() {
+            const player = document.getElementById("player");
+            document.getElementById("resumeModal").classList.add("hidden");
+            player.currentTime = savedTime;
+            player.play().catch(() => {});
+        }
+
+        function confirmRestart() {
+            const player = document.getElementById("player");
+            document.getElementById("resumeModal").classList.add("hidden");
+            localStorage.removeItem(storageKey);
+            player.currentTime = 0;
+            player.play().catch(() => {});
+        }
+
+        // Toast Helper
+        function showToast(message) {
+            const toast = document.getElementById("toast");
+            const toastMsg = document.getElementById("toastMsg");
+            toastMsg.innerText = message;
+            toast.classList.add("show");
+            setTimeout(() => {
+                toast.classList.remove("show");
+            }, 3000);
+        }
+
+        // Copy Direct Link
+        function copyStreamLink() {
+            navigator.clipboard.writeText(fileUrl).then(() => {
+                showToast("Stream Link Copied to Clipboard!");
+            }).catch(() => {
+                showToast("Failed to Copy Link!");
+            });
+        }
+
+        // External App Intent Launchers
+        function vlc_player() { window.location.href = "intent:" + encodeURI(fileUrl) + "#Intent;package=org.videolan.vlc;type=video/*;end;"; }
+        function mx_player() { window.location.href = "intent:" + encodeURI(fileUrl) + "#Intent;package=com.mxtech.videoplayer.ad;type=video/*;end;"; }
+
+        function bisalDownload() {
+            const a = document.createElement('a');
+            a.href = fileUrl;
+            a.download = fileName || 'video.mp4';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            showToast("Download Started!");
+        }
+    </script>
+</body>
 </html>
