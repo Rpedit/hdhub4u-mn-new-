@@ -151,21 +151,6 @@
                             </div>
                         </div>
                     </div>
-
-                    <!-- Smart Fallback Overlay -->
-                    <div id="playerErrorNotice" class="hidden absolute inset-0 bg-slate-950/95 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-20">
-                        <i class="fa-solid fa-triangle-exclamation text-amber-400 text-4xl mb-3 animate-pulse"></i>
-                        <h3 class="text-lg font-bold text-white mb-1">Slow Loading / Format Restriction</h3>
-                        <p class="text-xs text-slate-300 mb-4 max-w-md">Agar video browser me load hone me samay le rahi hai, toh bina wait kiye app me chalaayein:</p>
-                        <div class="flex flex-wrap justify-center gap-3">
-                            <button onclick="vlc_player()" class="bg-orange-600 hover:bg-orange-700 text-white font-bold px-5 py-2.5 rounded-xl text-xs flex items-center gap-2 shadow-lg">
-                                <img src="https://i.postimg.cc/15TQ4y7B/vlc.png" class="w-5 h-5"> Watch in VLC
-                            </button>
-                            <button onclick="mx_player()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-5 py-2.5 rounded-xl text-xs flex items-center gap-2 shadow-lg">
-                                <img src="https://i.postimg.cc/sx4Msv4T/mx.png" class="w-5 h-5"> Watch in MX Player
-                            </button>
-                        </div>
-                    </div>
                 </div>
 
                 <!-- File Info Card (Clean Movie Name Only) -->
@@ -292,8 +277,6 @@
         // Anti-Buffering Engine with Universal x264/x265/HEVC/10Bit/MKV Support
         function initFastStream() {
             const player = document.getElementById("player");
-            const errNotice = document.getElementById("playerErrorNotice");
-            let stallTimer = null;
 
             if (Hls.isSupported() && (fileUrl.includes('.m3u8') || fileUrl.includes('hls'))) {
                 const hls = new Hls({
@@ -304,37 +287,9 @@
                 });
                 hls.loadSource(fileUrl);
                 hls.attachMedia(player);
-                hls.on(Hls.Events.ERROR, function(event, data) {
-                    if (data.fatal) {
-                        errNotice.classList.remove("hidden");
-                    }
-                });
             } else {
                 player.src = fileUrl;
             }
-
-            player.addEventListener("error", function() {
-                errNotice.classList.remove("hidden");
-            });
-
-            // Extended Stall Window for Heavy Codecs
-            player.addEventListener("waiting", function() {
-                clearTimeout(stallTimer);
-                stallTimer = setTimeout(function() {
-                    if (player.readyState < 3) {
-                        errNotice.classList.remove("hidden");
-                    }
-                }, 20000);
-            });
-
-            player.addEventListener("playing", function() {
-                clearTimeout(stallTimer);
-                errNotice.classList.add("hidden");
-            });
-
-            player.addEventListener("canplay", function() {
-                clearTimeout(stallTimer);
-            });
         }
 
         // Format Seconds to HH:MM:SS
