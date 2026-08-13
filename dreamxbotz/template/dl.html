@@ -186,13 +186,6 @@
         <div class="inner">
             <div class="main" id="main">
 
-                <!-- Universal Codec Status Bar (Restored for Anti-Loading) -->
-                <div class="flex items-center justify-between mb-3 px-1">
-                    <span class="text-xs text-amber-200/90 font-semibold uppercase tracking-wider flex items-center">
-                        <i class="fa-solid fa-bolt text-[#FFB800] mr-1.5"></i> Universal Codec Engine Active
-                    </span>
-                </div>
-
                 <!-- Video Player Container -->
                 <div class="w-full rounded-2xl overflow-hidden shadow-2xl bg-black/80 backdrop-blur-2xl border border-white/10 relative glass-card-glow">
                     <video id="player" class="w-full aspect-video object-contain" playsinline controls crossorigin="anonymous" preload="auto">
@@ -321,7 +314,7 @@
             return clean || rawName;
         }
 
-        // Fast & Anti-Buffering HLS Stream Engine
+        // Fast Universal Streaming Engine
         function initFastStream() {
             const player = document.getElementById("player");
 
