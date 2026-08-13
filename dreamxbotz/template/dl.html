@@ -4,11 +4,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>HD Pʀᴏ Sᴇᴀʀᴄʜ Bᴏᴛ | {{file_name}}</title>
+    <title>HD PRO SEARCH BOT | {{file_name}}</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@500;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:ital,wght@0,500;0,700;0,800;1,700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" />
 
     <!-- Google Cast Official Engine -->
@@ -36,7 +36,7 @@
             touch-action: manipulation;
         }
 
-        /* Premium Glossy Glassmorphism Styling */
+        /* Glassmorphism Styling */
         .glass-card {
             background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%);
             backdrop-filter: blur(24px);
@@ -122,11 +122,31 @@
             text-shadow: 0 1px 3px rgba(0,0,0,0.5);
         }
 
-        /* Gradient Text Helper */
+        /* Gradient Text Classes */
         .brand-gradient-text {
             background: linear-gradient(135deg, #FF1E27 0%, #FF5722 50%, #FFB800 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
+            font-family: 'Josefin Sans', sans-serif;
+            font-weight: 800;
+        }
+
+        .brand-text-inline {
+            background: linear-gradient(135deg, #FF1E27 0%, #FF5722 50%, #FFB800 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 800;
+            display: inline-block;
+            white-space: nowrap;
+        }
+
+        /* Prevent Text Cut/Break */
+        .no-wrap-title {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            white-space: nowrap;
+            flex-wrap: nowrap;
         }
 
         /* Toast Popup */
@@ -155,8 +175,11 @@
 
     <!-- Centered Header / Navbar -->
     <nav class="sticky top-0 z-50 glass-card mx-3 my-3 px-4 py-3 max-w-7xl md:mx-auto flex justify-center items-center">
-        <a href="https://t.me/+sIOgiCYLtBxhNGI1" class="flex items-center">
-            <h3 class="text-xl sm:text-2xl font-black brand-gradient-text tracking-wider text-center uppercase">HD Pʀᴏ Sᴇᴀʀᴄʜ Bᴏᴛ 🔍</h3>
+        <a href="https://t.me/+sIOgiCYLtBxhNGI1" class="no-wrap-title">
+            <h3 class="text-xl sm:text-2xl font-extrabold brand-gradient-text tracking-wide text-center uppercase flex items-center justify-center gap-1.5">
+                <span>HD PRO SEARCH BOT</span>
+                <span style="-webkit-text-fill-color: initial;" class="inline-block leading-none">🔍</span>
+            </h3>
         </a>
     </nav>
 
@@ -213,11 +236,11 @@
                 </div>
             </div>
 
-            <!-- Clean Centered Info Section -->
-            <div class="abt space-y-8 my-12">
+            <!-- Info Section -->
+            <div class="abt space-y-8 my-10">
                 <div class="about glass-card p-6 md:p-10 text-center">
-                    <h1 class="text-2xl md:text-4xl font-extrabold mb-3 uppercase tracking-wide">
-                        WELCOME TO <span class="brand-gradient-text">HD Pʀᴏ Sᴇᴀʀᴄʜ Bᴏᴛ 🔍</span>
+                    <h1 class="text-2xl md:text-3xl font-black mb-3 uppercase tracking-wide leading-normal">
+                        WELCOME TO <span class="brand-text-inline">HD PRO SEARCH BOT <span style="-webkit-text-fill-color: initial;">🔍</span></span>
                     </h1>
                     <p class="max-w-xl mx-auto text-slate-300 text-xs md:text-sm leading-relaxed">
                         Enjoy high-speed playback, multi-codec streaming options, and seamless external video player integration.
@@ -227,13 +250,23 @@
         </div>
 
         <!-- Footer -->
-        <footer class="mt-12 border-t border-white/10 pt-6 pb-10 text-center">
-            <div class="copyright text-xs text-slate-400 space-y-2">
-                <h5>Copyright © 2025 <a href="https://t.me/+sIOgiCYLtBxhNGI1" class="font-bold brand-gradient-text">HD Pʀᴏ Sᴇᴀʀᴄʜ Bᴏᴛ 🔍</a>. All Rights Reserved.</h5>
-                <div class="icons py-1">
-                    <a href="https://t.me/+sIOgiCYLtBxhNGI1" class="text-[#FF5722] hover:text-[#FFB800] transition"><i class="fa-brands fa-telegram fa-xl"></i></a>
+        <footer class="mt-10 border-t border-white/10 pt-6 pb-8 text-center">
+            <div class="copyright text-xs text-slate-400 space-y-3">
+                <h5 class="flex items-center justify-center gap-1 flex-wrap font-semibold">
+                    <span>Copyright © 2025</span> 
+                    <a href="https://t.me/+sIOgiCYLtBxhNGI1" class="brand-text-inline">
+                        HD PRO SEARCH BOT <span style="-webkit-text-fill-color: initial;">🔍</span>
+                    </a>. 
+                    <span>All Rights Reserved.</span>
+                </h5>
+                
+                <div class="icons flex justify-center py-1">
+                    <a href="https://t.me/+sIOgiCYLtBxhNGI1" class="text-[#FF5722] hover:text-[#FFB800] transition inline-flex items-center justify-center p-2 rounded-full bg-white/5 border border-white/10">
+                        <i class="fa-brands fa-telegram text-lg"></i>
+                    </a>
                 </div>
-                <h4>This Page Is Made By <a href="https://t.me/+sIOgiCYLtBxhNGI1" class="font-bold text-[#FF1E27]">RPEDITZ</a></h4>
+
+                <h4 class="font-bold">This Page Is Made By <a href="https://t.me/+sIOgiCYLtBxhNGI1" class="font-extrabold text-[#FF1E27]">RPEDITZ</a></h4>
             </div>
         </footer>
     </div>
@@ -269,7 +302,7 @@
             }
         };
 
-        // Extract Clean Movie Title Without Any Technical Tags
+        // Extract Clean Movie Title
         function cleanMovieName(rawName) {
             if (!rawName) return "Movie Stream";
             
