@@ -36,7 +36,7 @@
             touch-action: manipulation;
         }
 
-        /* Glassmorphism Styling */
+        /* Glassmorphism Styling + GPU Acceleration */
         .glass-card {
             background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%);
             backdrop-filter: blur(24px);
@@ -46,9 +46,12 @@
             border-left: 1px solid rgba(255, 255, 255, 0.18);
             border-radius: 20px;
             box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.65), inset 0 1px 1px 0 rgba(255, 255, 255, 0.15);
+            transform: translateZ(0); /* Hardware Acceleration */
         }
 
         .glass-card-glow {
+            will-change: transform;
+            transform: translateZ(0);
             box-shadow: 0 0 35px rgba(229, 9, 20, 0.18), 0 12px 40px rgba(0, 0, 0, 0.7);
         }
 
@@ -70,6 +73,8 @@
             -webkit-backdrop-filter: blur(14px);
             position: relative;
             overflow: hidden;
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
         }
 
         .player-btn::before {
@@ -157,6 +162,7 @@
             opacity: 0;
             transition: all 0.3s ease;
             z-index: 1000;
+            will-change: transform, opacity;
         }
 
         #toast.show {
@@ -187,8 +193,8 @@
             <div class="main" id="main">
 
                 <!-- Video Player Container -->
-                <div class="w-full rounded-2xl overflow-hidden shadow-2xl bg-black/80 backdrop-blur-2xl border border-white/10 relative glass-card-glow">
-                    <video id="player" class="w-full aspect-video object-contain" playsinline controls crossorigin="anonymous" preload="auto">
+                <div id="playerContainer" class="w-full rounded-2xl overflow-hidden shadow-2xl bg-black/80 backdrop-blur-2xl border border-white/10 relative glass-card-glow">
+                    <video id="player" class="w-full aspect-video object-contain" playsinline controls crossorigin="anonymous" preload="metadata">
                         Your browser does not support playing this video directly.
                     </video>
 
@@ -314,22 +320,40 @@
             return clean || rawName;
         }
 
-        // Fast Universal Streaming Engine
+        // Fast Streaming Engine
         function initFastStream() {
             const player = document.getElementById("player");
 
             if (Hls.isSupported() && (fileUrl.includes('.m3u8') || fileUrl.includes('hls'))) {
                 const hls = new Hls({
-                    maxBufferLength: 30,
-                    maxMaxBufferLength: 60,
                     enableWorker: true,
                     lowLatencyMode: true,
-                    backBufferLength: 90
+                    maxBufferLength: 15,            // Fast start: initial 15-second buffer
+                    maxMaxBufferLength: 30,         // Cap buffer at 30 seconds to save RAM
+                    maxBufferSize: 30 * 1024 * 1024, // 30 MB Cache Limit
+                    startFragPrefetch: true,        // Prefetch initial frames for instant load
+                    appendErrorMaxRetry: 3
                 });
+                
                 hls.loadSource(fileUrl);
                 hls.attachMedia(player);
-                hls.on(Hls.Events.MANIFEST_PARSED, function() {
-                    player.play().catch(() => {});
+
+                // Auto-recover stream on network lag or media stall
+                hls.on(Hls.Events.ERROR, function (event, data) {
+                    if (data.fatal) {
+                        switch (data.type) {
+                            case Hls.ErrorTypes.NETWORK_ERROR:
+                                hls.startLoad();
+                                break;
+                            case Hls.ErrorTypes.MEDIA_ERROR:
+                                hls.recoverMediaError();
+                                break;
+                            default:
+                                hls.destroy();
+                                player.src = fileUrl;
+                                break;
+                        }
+                    }
                 });
             } else {
                 player.src = fileUrl;
@@ -345,6 +369,7 @@
             return `${pad(hrs)}:${pad(mins)}:${pad(secs)}`;
         }
 
+        // Optimized Progress Saving (Throttled LocalStorage)
         function initAutoResumeModal() {
             const player = document.getElementById("player");
             const modal = document.getElementById("resumeModal");
@@ -359,9 +384,12 @@
                 }
             });
 
+            let lastSaveTime = 0;
             player.addEventListener("timeupdate", function() {
-                if (player.currentTime > 0) {
+                const now = Date.now();
+                if (player.currentTime > 0 && (now - lastSaveTime > 2000)) {
                     localStorage.setItem(storageKey, player.currentTime);
+                    lastSaveTime = now;
                 }
             });
 
