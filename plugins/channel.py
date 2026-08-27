@@ -132,6 +132,7 @@ def schedule_update(bot, base_name, delay=5):
         delay,
         lambda: asyncio.create_task(update_movie_message(bot, base_name))
     )
+
 def extract_media_info(filename: str, caption: str):
     filename = normalize(clean_mentions_links(filename).title())
     caption_clean = clean_mentions_links(caption).lower() if caption else ""
@@ -185,32 +186,23 @@ def extract_media_info(filename: str, caption: str):
         if year:
             base_name += f" {year}"
 
-    # -------------------------
-    # NEW: strip season/episode tokens from final base_name
-    # -------------------------
     def _strip_season_episode_tokens(name: str) -> str:
-        """
-        Remove common season/episode markers from a title while preserving a trailing year.
-        Examples removed: S01, s01e02, 1x02, season 1, ep 02, episode 2, part 1
-        """
         if not name:
             return name
 
-        # Preserve trailing year (e.g. "Title (2020)" or "Title 2020")
         year_match = re.search(r'\(?\b(19|20)\d{2}\b\)?\s*$', name)
         year_part = ""
         if year_match:
             year_part = year_match.group(0)
             name = name[:year_match.start()].strip()
 
-        # Common patterns to remove
         patterns = [
-            r'\bS\d{1,2}E\d{1,2}\b',     # S01E02
-            r'\bS\d{1,2}\b',             # S01
-            r'\bE\d{1,2}\b',             # E02
-            r'\b\d{1,2}x\d{1,2}\b',      # 1x02
-            r'\bSeason\s*\d{1,2}\b',     # Season 1
-            r'\bEp(?:isode)?\.?\s*\d{1,3}\b',  # Ep02, Episode 2
+            r'\bS\d{1,2}E\d{1,2}\b',
+            r'\bS\d{1,2}\b',
+            r'\bE\d{1,2}\b',
+            r'\b\d{1,2}x\d{1,2}\b',
+            r'\bSeason\s*\d{1,2}\b',
+            r'\bEp(?:isode)?\.?\s*\d{1,3}\b',
             r'\bEpisode\s*\d{1,3}\b',
             r'\bPart\s*\d{1,2}\b'
         ]
@@ -218,11 +210,9 @@ def extract_media_info(filename: str, caption: str):
         for p in patterns:
             name = re.sub(p, ' ', name, flags=re.IGNORECASE)
 
-        # Remove leftover separators and extra whitespace
-        name = re.sub(r'[_\.\-]+', ' ', name)     # underscores/dots/hyphens
+        name = re.sub(r'[_\.\-]+', ' ', name)
         name = re.sub(r'\s+', ' ', name).strip()
 
-        # Reattach year in canonical form if we removed it earlier
         if year_part:
             y = re.search(r'(19|20)\d{2}', year_part)
             if y:
@@ -231,7 +221,6 @@ def extract_media_info(filename: str, caption: str):
         return name.strip()
 
     base_name = _strip_season_episode_tokens(base_name)
-    # If stripping accidentally removed everything, fall back to a safer value
     if not base_name:
         base_name = normalize(remove_ignored_words(normalize(processed_raw))) or filename
 
@@ -289,7 +278,7 @@ async def _process_with_lock(bot, filename, caption, media_info, base_name, proc
         db.movie_updates = db.db.movie_updates
 
     movie_doc = await db.movie_updates.find_one({"_id": base_name})
-    error_tmdb=False
+    error_tmdb = False
     file_data = {
         "filename": filename,
         "processed": processed,
@@ -303,14 +292,31 @@ async def _process_with_lock(bot, filename, caption, media_info, base_name, proc
     }
 
     if not movie_doc:
+        details = {}
+        
+        # Step 1: Pehle IMDb se exact title aur year pata karo (Accuracy ke liye)
+        imdb_details = await get_movie_details(base_name) or {}
+        verified_title = imdb_details.get("title") or base_name
+        verified_year = imdb_details.get("year") or media_info["year"]
+
+        # Step 2: Ab verified title & year ke sath TMDB par query bhejo (Proper poster ke liye)
         if TMDB_POSTER:
-            details = await get_movie_detailsx(base_name)
+            tmdb_query = f"{verified_title} {verified_year}" if verified_year else verified_title
+            details = await get_movie_detailsx(tmdb_query)
+            
             if not details or details.get("error") or (not details.get("poster_url") and not details.get("backdrop_url")):
-                error_tmdb=True
-                logger.info("TMDB error switching to IMDB")
-                details = await get_movie_details(base_name) or {}
+                error_tmdb = True
+                logger.info("TMDB match failed, falling back to IMDb details")
+                details = imdb_details
         else:
-            details = await get_movie_details(base_name) or {}
+            details = imdb_details
+            error_tmdb = True
+
+        # Backup fill agar TMDB me genres ya rating missing ho
+        if not details.get("genres") or details.get("genres") == "N/A":
+            details["genres"] = imdb_details.get("genres", "N/A")
+        if not details.get("rating") or details.get("rating") == "N/A":
+            details["rating"] = imdb_details.get("rating", "N/A")
 
         raw_genres = details.get("genres", "N/A")
         if isinstance(raw_genres, str):
@@ -318,13 +324,14 @@ async def _process_with_lock(bot, filename, caption, media_info, base_name, proc
             genres = ", ".join(g for g in genre_list if g in STANDARD_GENRES) or "N/A"
         else:
             genres = ", ".join(g for g in raw_genres if g in STANDARD_GENRES) or "N/A"
+            
         movie_doc = {
             "_id": base_name,
             "files": [file_data],
             "poster_url": details.get("backdrop_url") if LANDSCAPE_POSTER and TMDB_POSTER and details.get("backdrop_url") and not error_tmdb else details.get("poster_url"),
             "genres": genres,
             "rating": details.get("rating", "N/A"),
-            "imdb_url": details.get("url", "")if not TMDB_POSTER or error_tmdb else details.get("tmdb_url"),
+            "imdb_url": details.get("url", "") if not TMDB_POSTER or error_tmdb else details.get("tmdb_url"),
             "year": media_info["year"] or details.get("year"),
             "tag": media_info["tag"],
             "ott_platform": media_info["ott_platform"],
