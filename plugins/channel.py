@@ -1,13 +1,12 @@
 import re
 import logging
 import asyncio
-import pytz
 from datetime import datetime
 from collections import defaultdict
-from plugins.Deendayal.Imdbposter import get_movie_detailsx, fetch_image, get_movie_details
+from plugins.Dreamxfutures.Imdbposter import get_movie_detailsx, fetch_image, get_movie_details
 from database.users_chats_db import db
 from pyrogram import Client, filters, enums
-from info import CHANNELS, MOVIE_UPDATE_CHANNEL, LINK_PREVIEW, ABOVE_PREVIEW, BAD_WORDS, LANDSCAPE_POSTER, TMDB_POSTER, IMDB_POSTER
+from info import CHANNELS, MOVIE_UPDATE_CHANNEL, LINK_PREVIEW, ABOVE_PREVIEW, BAD_WORDS, LANDSCAPE_POSTER, TMDB_POSTER
 from Script import script
 from database.ia_filterdb import save_file
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
@@ -21,39 +20,46 @@ logger = logging.getLogger(__name__)
 # Precomputed sets for faster lookups
 IGNORE_WORDS = {
     "rarbg", "dub", "sub", "sample", "mkv", "aac", "combined",
-    "action", "adventure", "animation", "biography", "comedy", "crime",
-    "documentary", "drama", "fantasy", "film-noir", "history",
-    "horror", "music", "musical", "mystery", "romance", "sci-fi", "sport",
-    "thriller", "war", "western", "hdcam", "hdtc", "camrip", "ts", "tc",
-    "telesync", "dvdscr", "dvdrip", "predvd", "webrip", "web-dl", "tvrip",
-    "hdtv", "web dl", "webdl", "bluray", "brrip", "bdrip", "360p", "480p",
-    "720p", "1080p", "2160p", "4k", "1440p", "540p", "240p", "140p", "hevc",
-    "hdrip", "hin", "hindi", "tam", "tamil", "kan", "kannada", "tel", "telugu",
-    "mal", "malayalam", "eng", "english", "pun", "punjabi", "ben", "bengali",
-    "mar", "marathi", "guj", "gujarati", "urd", "urdu", "kor", "korean", "jpn",
-    "japanese", "nf", "netflix", "sonyliv", "sony", "sliv", "amzn", "prime",
-    "primevideo", "hotstar", "zee5", "jio", "jhs", "aha", "hbo", "paramount",
+    "action", "adventure", "animation", "biography", "comedy", "crime", 
+    "documentary", "drama", "fantasy", "film-noir", "history", 
+    "horror", "music", "musical", "mystery", "romance", "sci-fi", "sport", 
+    "thriller", "war", "western", "hdcam", "hdtc", "camrip", "ts", "tc", 
+    "telesync", "dvdscr", "dvdrip", "predvd", "webrip", "web-dl", "tvrip", 
+    "hdtv", "web dl", "webdl", "bluray", "brrip", "bdrip", "360p", "480p", 
+    "720p", "1080p", "2160p", "4k", "1440p", "540p", "240p", "140p", "hevc", 
+    "hdrip", "hin", "hindi", "tam", "tamil", "kan", "kannada", "tel", "telugu", 
+    "mal", "malayalam", "eng", "english", "pun", "punjabi", "ben", "bengali", 
+    "mar", "marathi", "guj", "gujarati", "urd", "urdu", "kor", "korean", "jpn", 
+    "japanese", "nf", "netflix", "sonyliv", "sony", "sliv", "amzn", "prime", 
+    "primevideo", "hotstar", "zee5", "jio", "jhs", "aha", "hbo", "paramount", 
     "apple", "hoichoi", "sunnxt", "viki"
 }|BAD_WORDS
 
 # Constants
 CAPTION_LANGUAGES = {
-    "hindi": "Hindi", "tamil": "Tamil", "kannada": "Kannada",
-    "telugu": "Telugu", "malayalam": "Malayalam", "english": "English",
-    "punjabi": "Punjabi", "bengali": "Bengali", "marathi": "Marathi",
-    "gujarati": "Gujarati", "bangla": "Bangla", "urdu": "Urdu",
-    "korean": "Korean", "japanese": "Japanese",
-    "multi audio": "Multi Audio", "dual audio": "Dual Audio",
+    "hin": "Hindi", "hindi": "Hindi",
+    "tam": "Tamil", "tamil": "Tamil",
+    "kan": "Kannada", "kannada": "Kannada",
+    "tel": "Telugu", "telugu": "Telugu",
+    "mal": "Malayalam", "malayalam": "Malayalam",
+    "eng": "English", "english": "English",
+    "pun": "Punjabi", "punjabi": "Punjabi",
+    "ben": "Bengali", "bengali": "Bengali",
+    "mar": "Marathi", "marathi": "Marathi",
+    "guj": "Gujarati", "gujarati": "Gujarati",
+    "urd": "Urdu", "urdu": "Urdu",
+    "kor": "Korean", "korean": "Korean",
+    "jpn": "Japanese", "japanese": "Japanese",
 }
 
 OTT_PLATFORMS = {
     "nf": "Netflix", "netflix": "Netflix",
     "sonyliv": "SonyLiv", "sony": "SonyLiv", "sliv": "SonyLiv",
     "amzn": "Amazon Prime Video", "prime": "Amazon Prime Video", "primevideo": "Amazon Prime Video",
-    "hotstar": "Disney+ Hotstar", "ZEE5": "ZEE5",
-    "jio": "JioHotstar", "jhs": "JioHotstar", "SM": "ShemarooMe",
-    "aha": "Aha", "hbo": "HBO Max", "paramount": "Paramount+", "CR": "Crunchyroll",
-    "ATV": "Apple TV+", "hoichoi": "Hoichoi", "snxt": "Sun NXT", "viki": "Viki"
+    "hotstar": "Disney+ Hotstar", "zee5": "Zee5",
+    "jio": "JioHotstar", "jhs": "JioHotstar",
+    "aha": "Aha", "hbo": "HBO Max", "paramount": "Paramount+",
+    "apple": "Apple TV+", "hoichoi": "Hoichoi", "sunnxt": "Sun NXT", "viki": "Viki"
 }
 
 STANDARD_GENRES = {
@@ -67,8 +73,8 @@ CLEAN_PATTERN = re.compile(r'@[^ \n\r\t\.,:;!?()\[\]{}<>\\/"\'=_%]+|\bwww\.[^\s\
 NORMALIZE_PATTERN = re.compile(r"[._]+|[()\[\]{}:;'–!,.?_]")
 QUALITY_PATTERN = re.compile(
     r"\b(?:HDCam|HDTC|CamRip|TS|TC|TeleSync|DVDScr|DVDRip|PreDVD|"
-    r"WEBRip|WEB-DL|TVRip|HDTV|BluRay|BRRip|BDRip|"
-    r"360p|480p|720p|1080p|4K-2160p|2160p|4K|1440p|540p|240p|140p|HDRip)\b",
+    r"WEBRip|WEB-DL|TVRip|HDTV|WEB DL|WebDl|BluRay|BRRip|BDRip|"
+    r"360p|480p|720p|1080p|2160p|4K|1440p|540p|240p|140p|HEVC|HDRip)\b", 
     re.IGNORECASE
 )
 YEAR_PATTERN = re.compile(r"(?<![A-Za-z0-9])(?:19|20)\d{2}(?![A-Za-z0-9])")
@@ -81,7 +87,7 @@ EP_ONLY_RANGE = re.compile(r'\b(?:EP|Episode)0*(\d{1,3})\s*-\s*0*(\d{1,3})\b',re
 MEDIA_FILTER = filters.document | filters.video | filters.audio
 locks = defaultdict(asyncio.Lock)
 pending_updates = {}
-
+error_tmdb = False
 
 def clean_mentions_links(text: str) -> str:
     return CLEAN_PATTERN.sub("", text or "").strip()
@@ -116,20 +122,19 @@ def extract_season_episode(filename: str) -> Tuple[Optional[int], Optional[str]]
             return season, ep
     return None, None
 
-def schedule_update(bot, group_id, delay=5):
-    if handle := pending_updates.get(group_id):
+def schedule_update(bot, base_name, delay=5):
+    if handle := pending_updates.get(base_name):
         if not handle.cancelled():
             handle.cancel()
-
+    
     loop = asyncio.get_event_loop()
-    pending_updates[group_id] = loop.call_later(
+    pending_updates[base_name] = loop.call_later(
         delay,
-        lambda: asyncio.create_task(update_movie_message(bot, group_id))
+        lambda: asyncio.create_task(update_movie_message(bot, base_name))
     )
-
 def extract_media_info(filename: str, caption: str):
     filename = normalize(clean_mentions_links(filename).title())
-    caption_clean = normalize(clean_mentions_links(caption)).lower() if caption else ""
+    caption_clean = clean_mentions_links(caption).lower() if caption else ""
     unified = f"{caption_clean} {filename.lower()}".strip()
 
     season = episode = year = None
@@ -178,7 +183,57 @@ def extract_media_info(filename: str, caption: str):
     if base_name.endswith(")"):
         base_name = re.sub(r"\s+\(\d{4}\)$", "", base_name)
         if year:
-            base_name += f" ({year})"
+            base_name += f" {year}"
+
+    # -------------------------
+    # NEW: strip season/episode tokens from final base_name
+    # -------------------------
+    def _strip_season_episode_tokens(name: str) -> str:
+        """
+        Remove common season/episode markers from a title while preserving a trailing year.
+        Examples removed: S01, s01e02, 1x02, season 1, ep 02, episode 2, part 1
+        """
+        if not name:
+            return name
+
+        # Preserve trailing year (e.g. "Title (2020)" or "Title 2020")
+        year_match = re.search(r'\(?\b(19|20)\d{2}\b\)?\s*$', name)
+        year_part = ""
+        if year_match:
+            year_part = year_match.group(0)
+            name = name[:year_match.start()].strip()
+
+        # Common patterns to remove
+        patterns = [
+            r'\bS\d{1,2}E\d{1,2}\b',     # S01E02
+            r'\bS\d{1,2}\b',             # S01
+            r'\bE\d{1,2}\b',             # E02
+            r'\b\d{1,2}x\d{1,2}\b',      # 1x02
+            r'\bSeason\s*\d{1,2}\b',     # Season 1
+            r'\bEp(?:isode)?\.?\s*\d{1,3}\b',  # Ep02, Episode 2
+            r'\bEpisode\s*\d{1,3}\b',
+            r'\bPart\s*\d{1,2}\b'
+        ]
+
+        for p in patterns:
+            name = re.sub(p, ' ', name, flags=re.IGNORECASE)
+
+        # Remove leftover separators and extra whitespace
+        name = re.sub(r'[_\.\-]+', ' ', name)     # underscores/dots/hyphens
+        name = re.sub(r'\s+', ' ', name).strip()
+
+        # Reattach year in canonical form if we removed it earlier
+        if year_part:
+            y = re.search(r'(19|20)\d{2}', year_part)
+            if y:
+                name = f"{name} {y.group(0)}"
+
+        return name.strip()
+
+    base_name = _strip_season_episode_tokens(base_name)
+    # If stripping accidentally removed everything, fall back to a safer value
+    if not base_name:
+        base_name = normalize(remove_ignored_words(normalize(processed_raw))) or filename
 
     return {
         "processed": normalize(processed_raw),
@@ -192,6 +247,7 @@ def extract_media_info(filename: str, caption: str):
         "language": language
     }
 
+
 @Client.on_message(filters.chat(CHANNELS) & MEDIA_FILTER)
 async def media_handler(bot, message):
     media = next(
@@ -204,7 +260,7 @@ async def media_handler(bot, message):
 
     media.file_type = next(ft for ft in ("document", "video", "audio") if hasattr(message, ft))
     media.caption = message.caption or ""
-    success, info = await save_file(bot, media)
+    success, info = await save_file(media)
     if not success:
         return
 
@@ -220,26 +276,20 @@ async def process_and_send_update(bot, filename, caption):
         base_name = media_info["base_name"]
         processed = media_info["processed"]
 
-        group_id = base_name
-        if media_info.get("season"):
-            season_num = media_info["season"]
-            group_id = f"{base_name} S{int(season_num):02d}"
-
-        lock = locks[group_id]
+        lock = locks[base_name]
         async with lock:
-            await _process_with_lock(bot, filename, caption, media_info, base_name, processed, group_id)
+            await _process_with_lock(bot, filename, caption, media_info, base_name, processed)
     except PyMongoError as e:
-        logger.error("Database error: %s", e)
+        logger.error(f"Database error in process_and_send_update: {e}")
     except Exception as e:
-        logger.exception("Processing failed: %s", e)
+        logger.exception(f"Processing failed in process_and_send_update: {e}")
 
-async def _process_with_lock(bot, filename, caption, media_info, base_name, processed, group_id):
+async def _process_with_lock(bot, filename, caption, media_info, base_name, processed):
     if not hasattr(db, 'movie_updates'):
         db.movie_updates = db.db.movie_updates
 
-    movie_doc = await db.movie_updates.find_one({"_id": group_id})
-    global error_tmdb
-    error_tmdb = False
+    movie_doc = await db.movie_updates.find_one({"_id": base_name})
+    error_tmdb=False
     file_data = {
         "filename": filename,
         "processed": processed,
@@ -253,131 +303,81 @@ async def _process_with_lock(bot, filename, caption, media_info, base_name, proc
     }
 
     if not movie_doc:
-        details = {}
-        error_tmdb = False
-        imdb_details = await get_movie_details(base_name) or {}
-        tmdb_details = {}
-
-        # Always fetch TMDB details to get backdrops and fallback info
-        tmdb_details = await get_movie_detailsx(base_name)
-        if tmdb_details.get("error") or not tmdb_details:
-            error_tmdb = True
-            # Smart Retry: Use IMDb corrected title to try TMDB again
-            if imdb_details and imdb_details.get("title"):
-                corrected_title = imdb_details["title"]
-                if corrected_title.lower() != base_name.lower():
-                    logger.info(f"Retrying TMDB with corrected title: {corrected_title}")
-                    tmdb_retry = await get_movie_detailsx(corrected_title)
-                    if tmdb_retry and not tmdb_retry.get("error"):
-                        tmdb_details = tmdb_retry
-                        error_tmdb = False
-
-        poster_url = None
-        poster_url = tmdb_details.get("backdrop_url")
-        if not poster_url:
-            poster_url = imdb_details.get("poster")
-
-        info_source_is_tmdb = False
-        imdb_has_info = bool(imdb_details and (imdb_details.get("rating") or imdb_details.get("genres") or imdb_details.get("runtime")))
-        tmdb_has_info = bool(tmdb_details and not tmdb_details.get("error"))
-
-        if imdb_has_info:
-            info_source_is_tmdb = False
-        elif tmdb_has_info:
-            info_source_is_tmdb = True
+        if TMDB_POSTER:
+            details = await get_movie_detailsx(base_name)
+            if not details or details.get("error") or (not details.get("poster_url") and not details.get("backdrop_url")):
+                error_tmdb=True
+                logger.info("TMDB error switching to IMDB")
+                details = await get_movie_details(base_name) or {}
         else:
-            info_source_is_tmdb = False
+            details = await get_movie_details(base_name) or {}
 
-        raw_genres = imdb_details.get("genres", "N/A")
-        if raw_genres in ("N/A", "", None, []) and tmdb_has_info and tmdb_details.get("genres"):
-            raw_genres = tmdb_details.get("genres")
-
-        rating = imdb_details.get("rating", "N/A")
-        if rating in ("N/A", "", None) and tmdb_has_info and tmdb_details.get("rating"):
-            rating = str(tmdb_details.get("rating"))
-
-        runtime = imdb_details.get("runtime")
-        if not runtime and tmdb_has_info and tmdb_details.get("runtime"):
-            runtime = str(tmdb_details.get("runtime"))
-
-        url = ""
-        if info_source_is_tmdb:
-             url = tmdb_details.get("tmdb_url", "") or imdb_details.get("url", "")
-        else:
-             url = imdb_details.get("url", "") or tmdb_details.get("tmdb_url", "")
-
-        rating_source = "tmdb" if info_source_is_tmdb else "imdb"
-
+        raw_genres = details.get("genres", "N/A")
         if isinstance(raw_genres, str):
             genre_list = [g.strip() for g in raw_genres.split(",")]
             genres = ", ".join(g for g in genre_list if g in STANDARD_GENRES) or "N/A"
         else:
             genres = ", ".join(g for g in raw_genres if g in STANDARD_GENRES) or "N/A"
-
         movie_doc = {
-            "_id": group_id,
+            "_id": base_name,
             "files": [file_data],
-            "poster_url": poster_url,
+            "poster_url": details.get("backdrop_url") if LANDSCAPE_POSTER and TMDB_POSTER and details.get("backdrop_url") and not error_tmdb else details.get("poster_url"),
             "genres": genres,
-            "rating": rating,
-            "rating_source": rating_source,
-            "runtime": runtime,
-            "imdb_url": url,
-            "url": url,
-            "source": "tmdb" if info_source_is_tmdb else "imdb",
-            "year": media_info["year"] or imdb_details.get("year"),
+            "rating": details.get("rating", "N/A"),
+            "imdb_url": details.get("url", "")if not TMDB_POSTER or error_tmdb else details.get("tmdb_url"),
+            "year": media_info["year"] or details.get("year"),
             "tag": media_info["tag"],
             "ott_platform": media_info["ott_platform"],
             "message_id": None,
-            "is_photo": False
+            "is_photo": False,
+            "error_tmdb": error_tmdb,
+            "is_backdrop": details.get("backdrop_url")
         }
         try:
             await db.movie_updates.insert_one(movie_doc)
-            await send_movie_update(bot, group_id)
-            movie_doc = await db.movie_updates.find_one({"_id": group_id})
+            await send_movie_update(bot, base_name)
+            movie_doc = await db.movie_updates.find_one({"_id": base_name})
         except DuplicateKeyError:
-            movie_doc = await db.movie_updates.find_one({"_id": group_id})
+            movie_doc = await db.movie_updates.find_one({"_id": base_name})
             if movie_doc:
-                if not any(f["filename"] == filename for f in movie_doc["files"]):
-                    await db.movie_updates.update_one(
-                        {"_id": group_id},
-                        {"$push": {"files": file_data}}
-                    )
-                    movie_doc["files"].append(file_data)
-                schedule_update(bot, group_id)
+                if any(f["filename"] == filename for f in movie_doc["files"]):
+                    return
+                await db.movie_updates.update_one(
+                    {"_id": base_name},
+                    {"$push": {"files": file_data}}
+                )
+                movie_doc["files"].append(file_data)
+                schedule_update(bot, base_name)
     else:
-        if not any(f["filename"] == filename for f in movie_doc["files"]):
-            await db.movie_updates.update_one(
-                {"_id": group_id},
-                {"$push": {"files": file_data}}
-            )
-            movie_doc["files"].append(file_data)
-        schedule_update(bot, group_id)
+        if any(f["filename"] == filename for f in movie_doc["files"]):
+            return
+        await db.movie_updates.update_one(
+            {"_id": base_name},
+            {"$push": {"files": file_data}}
+        )
+        movie_doc["files"].append(file_data)
+        schedule_update(bot, base_name)
 
-async def send_movie_update(bot, group_id):
+async def send_movie_update(bot, base_name):
     max_retries = 3
     base_delay = 5
     for attempt in range(max_retries):
         try:
-            movie_doc = await db.movie_updates.find_one({"_id": group_id})
+            movie_doc = await db.movie_updates.find_one({"_id": base_name})
             if not movie_doc:
                 return None
 
-            text = generate_movie_message(movie_doc, group_id)
-
-            # Only "Get Files" button layout
-            buttons = InlineKeyboardMarkup([
-                [
-                    InlineKeyboardButton(
-                        'ɢᴇᴛ ғɪʟᴇs',
-                        url=f"https://t.me/{temp.U_NAME}?start=getfile-{group_id.replace(' ', '-')}"
-                    )
-                ]
-            ])
-
+            text = generate_movie_message(movie_doc, base_name)
+            buttons = InlineKeyboardMarkup([[
+                InlineKeyboardButton(
+                    'ɢᴇᴛ ғɪʟᴇs',
+                    url=f"https://t.me/{temp.U_NAME}?start=getfile-{base_name.replace(' ', '-')}"
+                )
+            ]])
+            size=(2560, 1440) if LANDSCAPE_POSTER and TMDB_POSTER and movie_doc.get("is_backdrop") and not movie_doc.get("error_tmdb") else (853, 1280)
             if movie_doc.get("poster_url") and not LINK_PREVIEW:
-                resized_poster = await fetch_image(movie_doc["poster_url"], size=(2560, 1440) if LANDSCAPE_POSTER else (853, 1280))
-                msg = await bot.send_photo(has_spoiler=True,
+                resized_poster = await fetch_image(movie_doc["poster_url"], size)
+                msg = await bot.send_photo(
                     chat_id=MOVIE_UPDATE_CHANNEL,
                     photo=resized_poster,
                     caption=text,
@@ -390,8 +390,7 @@ async def send_movie_update(bot, group_id):
                     "chat_id": MOVIE_UPDATE_CHANNEL,
                     "text": text,
                     "reply_markup": buttons,
-                    "parse_mode": enums.ParseMode.HTML,
-                    "disable_web_page_preview": True
+                    "parse_mode": enums.ParseMode.HTML
                 }
                 if movie_doc.get("poster_url") and LINK_PREVIEW:
                     send_params["invert_media"] = ABOVE_PREVIEW
@@ -399,7 +398,7 @@ async def send_movie_update(bot, group_id):
                 is_photo = False
 
             await db.movie_updates.update_one(
-                {"_id": group_id},
+                {"_id": base_name},
                 {"$set": {"message_id": msg.id, "is_photo": is_photo}}
             )
             return msg
@@ -411,42 +410,68 @@ async def send_movie_update(bot, group_id):
             break
     return None
 
-async def update_movie_message(bot, group_id):
+async def update_movie_message(bot, base_name):
     try:
-        movie_doc = await db.movie_updates.find_one({"_id": group_id})
+        movie_doc = await db.movie_updates.find_one({"_id": base_name})
         if not movie_doc:
             return
 
-        text = generate_movie_message(movie_doc, group_id)
-
-        buttons = InlineKeyboardMarkup([
-            [
-                InlineKeyboardButton(
-                    'ɢᴇᴛ ғɪʟᴇs',
-                    url=f"https://t.me/{temp.U_NAME}?start=getfile-{group_id.replace(' ', '-')}"
-                )
-            ]
-        ])
+        text = generate_movie_message(movie_doc, base_name)
+        buttons = InlineKeyboardMarkup([[
+            InlineKeyboardButton(
+                'ɢᴇᴛ ғɪʟᴇs',
+                url=f"https://t.me/{temp.U_NAME}?start=getfile-{base_name.replace(' ', '-')}"
+            )
+        ]])
 
         message_id = movie_doc.get("message_id")
         is_photo = movie_doc.get("is_photo", False)
 
         if not message_id:
-            await send_movie_update(bot, group_id)
+            await send_movie_update(bot, base_name)
             return
 
         try:
-            await bot.delete_messages(
-                chat_id=MOVIE_UPDATE_CHANNEL,
-                message_ids=message_id
-            )
-        except Exception:
+            if is_photo:
+                await bot.edit_message_caption(
+                    chat_id=MOVIE_UPDATE_CHANNEL,
+                    message_id=message_id,
+                    caption=text,
+                    reply_markup=buttons,
+                    parse_mode=enums.ParseMode.HTML
+                )
+            else:
+                await bot.edit_message_text(
+                    chat_id=MOVIE_UPDATE_CHANNEL,
+                    message_id=message_id,
+                    text=text,
+                    reply_markup=buttons,
+                    parse_mode=enums.ParseMode.HTML,
+                    invert_media=ABOVE_PREVIEW,
+                    disable_web_page_preview=not LINK_PREVIEW
+                )
+            return
+        except (MessageIdInvalid, MessageNotModified) as e:
+            logger.warning(f"Message update skipped due to error: {e}")
             pass
-        await send_movie_update(bot, group_id)
+        except Exception:
+            try:
+                await bot.delete_messages(
+                    chat_id=MOVIE_UPDATE_CHANNEL,
+                    message_ids=message_id
+                )
+                await db.movie_updates.update_one(
+                    {"_id": base_name},
+                    {"$set": {"message_id": None, "is_photo": False}}
+                )
+            except Exception as e:
+                logger.error(f"Error during message deletion/update in recovery: {e}")
+                pass
+            await send_movie_update(bot, base_name)
     except Exception as e:
-        logger.error(f"Failed to update movie message: {e}")
+        logger.error(f"Failed to update movie message for {base_name}: {e}")
 
-def generate_movie_message(movie_doc, group_id):
+def generate_movie_message(movie_doc, base_name):
     all_qualities = set()
     all_languages = set()
     all_ott_platforms = set()
@@ -500,104 +525,27 @@ def generate_movie_message(movie_doc, group_id):
                 collapsed.append(str(start) if start == end else f"{start}-{end}")
 
             all_ep_parts = collapsed + sorted(ranges, key=lambda s: int(s.split("-")[0]))
-            episode_lines.append(f"S0{int(season)}: E ⪼ {'- '.join(all_ep_parts)}")
+            episode_lines.append(f"S{int(season)}: {', '.join(all_ep_parts)}")
 
-        epi_str = " | ".join(episode_lines)
+        epi_str = "\n".join(episode_lines)
         if epi_str:
-            epi_block = f"🎬 ᴇᴘɪsᴏᴅᴇs : <b>{epi_str}</b>"
+            epi_block = f"📺 ᴇᴘɪsᴏᴅᴇs : <b>{epi_str}</b>"
 
     genres = movie_doc.get("genres", "N/A")
-    genres_block = f"\n<b>🎭 ɢᴇɴʀᴇs : {genres}</b>" if genres and genres != "N/A" else ""
-
-    rating = movie_doc.get("rating", "N/A")
-    rating_source = movie_doc.get("rating_source")
-    if not rating_source:
-        url_fallback = movie_doc.get("url", "") or movie_doc.get("imdb_url", "")
-        rating_source = "tmdb" if "themoviedb.org" in url_fallback else "imdb"
-
-    rating_label = "ʀᴀᴛɪɴɢ" if rating_source == "tmdb" else "ʀᴀᴛɪɴɢ"
-    rating_block = f"<b>🎞 {rating_label}  : {rating}</b>" if rating and rating != "N/A" else ""
-
-    url = movie_doc.get("url") or movie_doc.get("imdb_url", "")
-    source = movie_doc.get("source")
-    if not source:
-        source = "tmdb" if "themoviedb.org" in url else "imdb"
-    source_info = "ᴛᴍᴅʙ ɪɴғᴏ" if source == "tmdb" else "ɪᴍᴅʙ ɪɴғᴏ"
-
-    QUALITY_MAP = {
-        "web-dl": "WEB-DL", "webrip": "WEBRip", "hdcam": "HDCam", "hdtc": "HDTC",
-        "camrip": "CamRip", "ts": "TS", "tc": "TC", "telesync": "TeleSync",
-        "dvdscr": "DVDScr", "dvdrip": "DVDRip", "predvd": "PreDVD", "tvrip": "TVRip",
-        "hdtv": "HDTV", "bluray": "BluRay", "brrip": "BRRip", "bdrip": "BDRip",
-        "hdrip": "HDRip"
-    }
-    formatted_qualities = set()
-    for q in all_qualities:
-        q_lower = q.lower()
-        if q_lower == "hevc":
-            continue
-        formatted_qualities.add(QUALITY_MAP.get(q_lower, q))
-
-    quality_str = ", ".join(sorted(formatted_qualities)) if formatted_qualities else "N/A"
+    quality_str = ", ".join(sorted(all_qualities)) if all_qualities else "N/A"
     language_str = ", ".join(sorted(all_languages)) if all_languages else "N/A"
     ott_str = ", ".join(sorted(all_ott_platforms)) if all_ott_platforms else "N/A"
-    ott_line = f"🌐 ᴏᴛᴛ    : <b>{ott_str}</b>\n" if ott_str != "N/A" and ott_str else ""
-
-    duration_str = ""
-    raw_runtime = movie_doc.get("runtime")
-    if raw_runtime:
-        if isinstance(raw_runtime, list):
-            raw_runtime = raw_runtime[0]
-
-        raw_str = str(raw_runtime).lower()
-        total_mins = 0
-
-        match = re.search(r'(?:(\d+)\s*h\b\s*)?(?:(\d+)\s*m(?:in)?\b)?', raw_str)
-        if match and (match.group(1) or match.group(2)):
-            h = int(match.group(1)) if match.group(1) else 0
-            m = int(match.group(2)) if match.group(2) else 0
-            total_mins = h * 60 + m
-
-        if not total_mins:
-            digits = ''.join(filter(str.isdigit, raw_str))
-            if digits:
-                total_mins = int(digits)
-
-        if total_mins:
-            if total_mins > 59:
-                hours = total_mins // 60
-                minutes = total_mins % 60
-                if minutes > 0:
-                    formatted = f"{hours}h {minutes}m"
-                else:
-                    formatted = f"{hours}h"
-            else:
-                formatted = f"{total_mins} min"
-
-            if primary_tag == "#SERIES":
-                duration_str = f"\n<b>⏱ ᴅᴜʀᴀᴛɪᴏɴ : </b><b>{formatted}/ep (Avg)</b>"
-            else:
-                duration_str = f"\n<b>⏱ ᴅᴜʀᴀᴛɪᴏɴ : </b><b>{formatted}</b>"
-
-    ist = pytz.timezone('Asia/Kolkata')
-    now = datetime.now(ist)
-    date_str = now.strftime("%d %b %Y")
-    time_str = now.strftime("%I:%M:%S %p")
 
     return script.MOVIE_UPDATE_NOTIFY_TXT.format(
         poster_url=movie_doc.get("poster_url", ""),
-        url=url,
-        source_info=source_info,
-        filename=group_id,
+        imdb_url=movie_doc.get("imdb_url", ""),
+        filename=base_name,
         tag=primary_tag,
-        genres_block=genres_block,
-        ott_line=ott_line,
+        genres=genres,
+        ott=ott_str,
         quality=quality_str,
         language=language_str,
         episodes=epi_block,
-        rating_block=rating_block,
-        duration=duration_str,
-        search_link=temp.B_LINK,
-        date=date_str,
-        time=time_str
+        rating=movie_doc.get("rating", "N/A"),
+        search_link=temp.B_LINK
     )
