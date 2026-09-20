@@ -268,21 +268,19 @@ Mᴇꜱꜱᴀɢᴇ : <b>{}</b>"""
 
 <b>⚠️ ❌👉This file automatically❗delete after 1 minute❗so please forward in another chat👈❌</b>"""
     
-    MOVIE_UPDATE_NOTIFY_TXT = """
-</b><a href={poster_url}>📥 </a><a href={imdb_url}>NEW {tag} ADDED</a></b>
+    MOVIE_UPDATE_NOTIFY_TXT = """<b><a href="{poster_url}">📥</a> <a href="{imdb_url}">ɴᴇᴡ {tag} ᴀᴅᴅᴇᴅ</a></b>
 
 ✨ ᴛɪᴛʟᴇ : <code>{filename}</code>
 ─┉─•✦•─┉─
-<blockquote>🎭 ɢᴇɴʀᴇs : <b>{genres}</b>
-🍿 ᴏᴛᴛ        : <b>{ott}</b>
-🎬 ǫᴜᴀʟɪᴛʏ : <b>{quality}</b>
-🔉 ᴀᴜᴅɪᴏ    : <b>{language}</b>
-🌟 ʀᴀᴛɪɴɢ   : <b>{rating}</b>
-{episodes} </blockquote>
+<blockquote>🎭 ɢᴇɴʀᴇs\xa0\xa0: <b>{genres}</b>
+🍿 ᴏᴛᴛ\xa0\xa0\xa0\xa0\xa0\xa0\xa0\xa0: <b>{ott}</b>
+⏱️ ʀᴜɴᴛɪᴍᴇ\xa0 : <b>{runtime}</b>
+🎬 ǫᴜᴀʟɪᴛʏ\xa0 : <b>{quality}</b>
+🔉 ᴀᴜᴅɪᴏ\xa0\xa0\xa0\xa0 : <b>{language}</b>
+🌟 ʀᴀᴛɪɴɢ\xa0\xa0\xa0\xa0 : <b>{rating}</b>{episodes}</blockquote>
 ─┉─•✦•─┉─
 
-🔍 <b>Sᴇᴀʀᴄʜ →</b> {search_link}
-"""
+🔍 <b>Sᴇᴀʀᴄʜ →</b> {search_link}"""
 
     IMDB_TEMPLATE_TXT = """<b><a href={url}>{title} (<a href={url}/releaseinfo>{year}</a>)
 
